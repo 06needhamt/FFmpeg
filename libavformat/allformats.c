@@ -199,6 +199,7 @@ extern const AVInputFormat  ff_hcom_demuxer;
 extern const AVOutputFormat ff_hds_muxer;
 extern const AVInputFormat  ff_hevc_demuxer;
 extern const AVOutputFormat ff_hevc_muxer;
+extern const AVInputFormat  ff_hikvision_demuxer;
 extern const AVInputFormat  ff_hls_demuxer;
 extern const AVOutputFormat ff_hls_muxer;
 extern const AVInputFormat  ff_hnm_demuxer;
