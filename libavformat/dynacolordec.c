@@ -30,11 +30,9 @@
 #include "libavutil/avassert.h"
 
 int ff_dyna_read_file_header(AVFormatContext *ctx, AVIOContext *pb, unsigned char *pes_data, DynacolorPesHeader *pes,
-                               unsigned int *size, time_t *time, DynacolorHeader *header, unsigned int *basicIdx_H, unsigned int *basicIdx_L,
-                               unsigned char first)
+                               unsigned int *size, time_t *time, DynacolorHeader *header, unsigned int *basicIdx_H, unsigned int *basicIdx_L)
 {
     int ret = 0;
-    unsigned int stream_format;
 
     *(basicIdx_H) = avio_rl32(pb);
 
@@ -125,32 +123,6 @@ int ff_dyna_read_file_header(AVFormatContext *ctx, AVIOContext *pb, unsigned cha
 
     if (avio_read(pb, pes_data, DYNACOLOR_PES_HEADER_SIZE) != DYNACOLOR_PES_HEADER_SIZE)
         return AVERROR_INVALIDDATA;
-
-    ret = ff_dyna_read_pes_header(ctx, pes_data);
-
-    if (ret)
-    {
-        av_log(ctx, AV_LOG_ERROR, "Failed to Build PES Header\n");
-        return AVERROR_INVALIDDATA;
-    }
-    else
-    {
-        if (first)
-        {
-            stream_format = ff_dyna_get_stream_format(ctx, header);
-            if (!stream_format)
-            {
-                avpriv_report_missing_feature(ctx, "Format %02X,", stream_format);
-                return AVERROR_PATCHWELCOME;
-            }
-            else if (stream_format == AVERROR_INVALIDDATA)
-            {
-                av_log(ctx, AV_LOG_ERROR, "Could not Determine Stream Format\n");
-                return AVERROR_INVALIDDATA;
-            }
-            av_log(ctx, AV_LOG_DEBUG, "File Has 0x%02X Stream Format\n", stream_format);
-        }
-    }
 
     return ret;
 }
@@ -243,8 +215,8 @@ int ff_dyna_read_pes_header(AVFormatContext *ctx, uint8_t *pes_data)
     priv->pes_header.unused_4 = MKTAG(pes_data[20], pes_data[21], pes_data[22], pes_data[23]);
 
     priv->pes_header.size_bit7to0 = pes_data[24];
-    priv->pes_header.size_bit10to8 = pes_data[25] & 0x08;
-    priv->pes_header.size_bit14to11 = pes_data[26] & 0xF;
+    priv->pes_header.size_bit10to8 = pes_data[25];
+    priv->pes_header.size_bit14to11 = pes_data[26];
     priv->pes_header.size_bit21to15 = pes_data[27];
     priv->pes_header.size_marker0 = pes_data[28] & 0x01;
     priv->pes_header.size_marker1 = pes_data[29] & 0x01;
@@ -294,18 +266,44 @@ static int dyna_read_header(AVFormatContext *ctx)
     unsigned int size;
 
     unsigned int basicIdx_H, basicIdx_L;
+    unsigned int stream_format;
 
     pes_data = av_malloc_array(DYNACOLOR_PES_HEADER_SIZE, 1);
     pes = av_malloc(sizeof(DynacolorPesHeader));
-
-    ret = ff_dyna_read_file_header(ctx, pb, pes_data, pes, &size, &time,
-                                     &priv->header, &basicIdx_H, &basicIdx_L, 1);
 
     if (ret)
     {
         ret = AVERROR_INVALIDDATA;
         goto end;
     }
+
+    ret = ff_dyna_read_file_header(ctx, pb, pes_data, pes, &size, &time,
+                                     &priv->header, &basicIdx_H, &basicIdx_L);
+
+    ret = ff_dyna_read_pes_header(ctx, pes_data);
+    avio_seek(pb, -DYNACOLOR_PES_HEADER_SIZE, SEEK_CUR); // Move Back to before the header so it can be read again in dyna_read_packet
+
+    if (ret)
+    {
+        av_log(ctx, AV_LOG_ERROR, "Failed to Build PES Header\n");
+        return AVERROR_INVALIDDATA;
+    }
+    else
+    {
+        stream_format = ff_dyna_get_stream_format(ctx, &priv->header);
+        if (!stream_format)
+        {
+            avpriv_report_missing_feature(ctx, "Format %02X,", stream_format);
+            return AVERROR_PATCHWELCOME;
+        }
+        else if (stream_format == AVERROR_INVALIDDATA)
+        {
+            av_log(ctx, AV_LOG_ERROR, "Could not Determine Stream Format\n");
+            return AVERROR_INVALIDDATA;
+        }
+        av_log(ctx, AV_LOG_DEBUG, "File Has 0x%02X Stream Format\n", stream_format);
+    }
+
 
     if (priv->pes_header.format_id == DYNACOLOR_JPEG_FORMAT_PREFIX)
     {
@@ -395,23 +393,21 @@ static int dyna_read_packet(AVFormatContext *ctx, AVPacket *pkt)
     AVIOContext *pb = ctx->pb;
     DynacolorPesHeader *pes;
 
-    time_t time;
     unsigned char *pes_data;
     unsigned char *pkt_data;
     unsigned int size;
 
-    unsigned int basicIdx_H, basicIdx_L;
-
     pes_data = av_malloc_array(DYNACOLOR_PES_HEADER_SIZE, 1);
     pes = av_malloc(sizeof(DynacolorPesHeader));
 
-    ret = ff_dyna_read_file_header(ctx, pb, pes_data, pes, &size, &time,
-                                     &priv->header, &basicIdx_H, &basicIdx_L, 0);
+    ret = ff_dyna_read_pes_header(ctx, pes_data);
 
     size = (priv->pes_header.size_bit7to0 & 0xFF) | 
     ((priv->pes_header.size_bit10to8 & 0x04) << 15) | 
     ((priv->pes_header.size_bit14to11 & 0x08) << 11) | 
     ((priv->pes_header.size_bit21to15 & 0x7F) << 8);
+
+    av_log(ctx, AV_LOG_DEBUG, "Size = %i\n", size);
 
     pkt_data = av_malloc(size);
     ret = avio_read(pb, pkt_data, size);
@@ -446,7 +442,10 @@ static int dyna_read_seek(AVFormatContext *ctx, int stream_index,
     unsigned int size = 0;
     int64_t ret = 0L;
 
-    size = (priv->pes_header.size_bit7to0 & 0xFF) | ((priv->pes_header.size_bit10to8 & 0x04) << 15) | ((priv->pes_header.size_bit14to11 & 0x08) << 11) | ((priv->pes_header.size_bit21to15 & 0x7F) << 8);
+    size = (priv->pes_header.size_bit7to0 & 0xFF) |
+    ((priv->pes_header.size_bit10to8 & 0x04) << 15) |
+    ((priv->pes_header.size_bit14to11 & 0x08) << 11) |
+    ((priv->pes_header.size_bit21to15 & 0x7F) << 8);
 
     ret = avio_seek(ctx->pb, size, SEEK_SET);
 

@@ -203,8 +203,7 @@ typedef struct {
 int ff_dyna_get_stream_format(AVFormatContext *ctx, DynacolorHeader *header);
 
 int ff_dyna_read_file_header(AVFormatContext *ctx, AVIOContext *pb, unsigned char *pes_data, DynacolorPesHeader *pes, unsigned int *size,
-                               time_t *time, DynacolorHeader *cdata_B, unsigned int *basicIdx_H, unsigned int *basicIdx_L,
-                               unsigned char first);
+                               time_t *time, DynacolorHeader *cdata_B, unsigned int *basicIdx_H, unsigned int *basicIdx_L);
                                
 int ff_dyna_write_file_header(AVFormatContext *ctx, AVIOContext *pb,
                                 DynacolorHeader *header, unsigned int *size, time_t *time);
