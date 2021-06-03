@@ -23,22 +23,34 @@
 #include "internal.h"
 #include "hikvision.h"
 
-static int hikvision_close(AVFormatContext *s)
+static int hikvision_close(AVFormatContext *ctx)
 {
     return 0;
 }
 
-static int hikvision_read_header(AVFormatContext *s)
+static int hikvision_read_header(AVFormatContext *ctx)
+{
+    int ret = 0;
+    HikvisionContext *priv = ctx->priv_data;
+    AVIOContext *pb = ctx->pb;
+
+    AVStream *vstream = NULL;
+    AVCodec *vcodec = NULL;
+    AVCodecParameters *vcodec_params = NULL;
+
+    AVStream *astream = NULL;
+    AVCodec *acodec = NULL;
+    AVCodecParameters *acodec_params = NULL;
+
+    return 0;
+}
+
+static int hikvision_read_packet(AVFormatContext *ctx, AVPacket *pkt)
 {
     return 0;
 }
 
-static int hikvision_read_packet(AVFormatContext *s, AVPacket *pkt)
-{
-    return 0;
-}
-
-static int hikvision_read_seek(AVFormatContext *s, int stream_index,
+static int hikvision_read_seek(AVFormatContext *ctx, int stream_index,
                                int64_t timestamp, int flags)
 {
     return 0;
