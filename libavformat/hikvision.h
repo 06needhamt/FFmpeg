@@ -39,7 +39,7 @@ typedef struct HikvisionHeader {
     unsigned short audio_codec_id;
     unsigned short reserved_2;
     unsigned short some_audio_codec_related_value;
-    unsigned char reserved_3[82];
+    unsigned char reserved_3[92];
 } HikvisionHeader;
 
 typedef struct HikvisionContext {

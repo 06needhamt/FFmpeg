@@ -45,7 +45,7 @@ static int hikvision_read_header(AVFormatContext *ctx)
     priv->header.reserved_2 = avio_rl16(pb);
     priv->header.some_audio_codec_related_value = avio_rl16(pb);
 
-    if(avio_read(pb, priv->header.reserved_3, 82) != 82) {
+    if(avio_read(pb, priv->header.reserved_3, 92) != 92) {
         ret = AVERROR_BUFFER_TOO_SMALL;
         return ret;
     }
@@ -55,8 +55,8 @@ static int hikvision_read_header(AVFormatContext *ctx)
     case HIKVISION_VIDEO_CODEC_H264:
         vcodec = avcodec_find_decoder(AV_CODEC_ID_H264);
         vstream = avformat_new_stream(ctx, vcodec);
-        // if (!vstream || !vcodec_params)
-        //     ret = AVERROR_INVALIDDATA;
+        if (!vstream || !vcodec_params)
+            ret = AVERROR_INVALIDDATA;
         break;
 
     case HIKVISION_VIDEO_CODEC_MPEG4:
@@ -64,8 +64,8 @@ static int hikvision_read_header(AVFormatContext *ctx)
         vstream = avformat_new_stream(ctx, vcodec);
         vcodec_params = vstream->codecpar;
 
-        // if (!vstream || !vcodec_params)
-        //     ret = AVERROR_INVALIDDATA;
+        if (!vstream || !vcodec_params)
+            ret = AVERROR_INVALIDDATA;
         break;
     
     default:
@@ -78,29 +78,29 @@ static int hikvision_read_header(AVFormatContext *ctx)
     if (ret)
         return ret;
 
-    switch (priv->header.audio_codec_id)
-    {
-    case HIKVISION_AUDIO_CODEC_G711U:
-        acodec = avcodec_find_decoder(AV_CODEC_ID_PCM_ALAW);
-        astream = avformat_new_stream(ctx, acodec);
-        acodec_params = astream->codecpar;
+    // switch (priv->header.audio_codec_id)
+    // {
+    // case HIKVISION_AUDIO_CODEC_G711U:
+    //     acodec = avcodec_find_decoder(AV_CODEC_ID_PCM_ALAW);
+    //     astream = avformat_new_stream(ctx, acodec);
+    //     acodec_params = astream->codecpar;
 
-        // if (!astream || !acodec_params)
-        //     ret = AVERROR_INVALIDDATA;
-        // break;
+    //     if (!astream || !acodec_params)
+    //         ret = AVERROR_INVALIDDATA;
+    //     break;
 
-    case HIKVISION_AUDIO_CODEC_NONE:
-        ret = 0;
-        break;
+    // case HIKVISION_AUDIO_CODEC_NONE:
+    //     ret = 0;
+    //     break;
     
-    default:
-        av_log(ctx, AV_LOG_ERROR, "Unknown Audio Codec ID %i\n", priv->header.audio_codec_id);
-        ret = AVERROR_PATCHWELCOME;
-        break;
-    }
+    // default:
+    //     av_log(ctx, AV_LOG_ERROR, "Unknown Audio Codec ID %i\n", priv->header.audio_codec_id);
+    //     ret = AVERROR_PATCHWELCOME;
+    //     break;
+    // }
 
-    if (ret)
-        return ret;
+    // if (ret)
+    //     return ret;
 
     return ret;
 }
@@ -112,9 +112,14 @@ static int hikvision_read_packet(AVFormatContext *ctx, AVPacket *pkt)
     AVIOContext *pb = ctx->pb;
 
     unsigned char *pkt_data;
-    int size;
+    unsigned int start_code;
+    unsigned short size;
 
-    size = 7737;
+    start_code = avio_rl32(pb);
+    size = avio_rl16(pb);
+
+    if (size == 0)
+        size = 100;
 
     av_log(ctx, AV_LOG_DEBUG, "Size: %i\n", size);
 
