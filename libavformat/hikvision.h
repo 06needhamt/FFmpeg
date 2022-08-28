@@ -25,25 +25,35 @@
 #include "avformat.h"
 #include "avio_internal.h"
 
-#define HIKVISION_VIDEO_CODEC_H264 0x0100
-#define HIKVISION_VIDEO_CODEC_MPEG4 0x0003
+#define HIKVISION_ORIGINAL_MAGIC MKTAG('4', 'H', 'K', 'H')
+#define HIKVISION_HIKCONVERT_MAGIC MKTAG('I', 'M', 'K', 'H')
 
-#define HIKVISION_AUDIO_CODEC_NONE 0x7110
-#define HIKVISION_AUDIO_CODEC_G711U 0x7111
+typedef struct HikvisionResolution {
+    int padding;
+    int width;
+    int height;
+} HikvisionResolution;
 
 typedef struct HikvisionHeader {
-    unsigned int magic;
-    unsigned int reserved_0;
-    unsigned short reserved_1;
-    unsigned short video_codec_id;
-    unsigned short audio_codec_id;
-    unsigned short reserved_2;
-    unsigned short some_audio_codec_related_value;
-    unsigned char reserved_3[92];
+    int magic;
+    int version;
+    int field_8;
+    short field_18;
+    short field_20;
+    short field_22;
+    int field_24;
+    int field_28;
+    int field_32;
+    HikvisionResolution resolution;
 } HikvisionHeader;
 
 typedef struct HikvisionContext {
     HikvisionHeader header;
 } HikvisionContext; 
+
+
+int hikvision_get_resolution(AVFormatContext *ctx);
+int hikvision_parse_mediainfo(AVFormatContext *ctx);
+int hikvision_parse_file_header(AVFormatContext *ctx);
 
 #endif
