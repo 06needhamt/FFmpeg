@@ -22,6 +22,8 @@
 #ifndef AVFORMAT_HIKVISION_H
 #define AVFORMAT_HIKVISION_H
 
+#include <stdbool.h>
+
 #include "avformat.h"
 #include "avio_internal.h"
 
@@ -34,6 +36,16 @@ typedef struct HikvisionResolution {
     int height;
 } HikvisionResolution;
 
+typedef struct HikvisionMediaInfo {
+    short field_8;
+    short field_10;
+    short field_12;
+    unsigned char field_14;
+    unsigned char field_15;
+    int field_16;
+    int field_20;
+} HikvisionMediaInfo;
+
 typedef struct HikvisionHeader {
     int magic;
     int version;
@@ -44,16 +56,36 @@ typedef struct HikvisionHeader {
     int field_24;
     int field_28;
     int field_32;
+    HikvisionMediaInfo media_info;
     HikvisionResolution resolution;
 } HikvisionHeader;
 
+typedef struct HikvisionGroupHeader
+{
+    int field_4;
+    int field_8;
+    int field_12;
+    int field_16;
+    int field_20;
+    int field_24;
+    int field_28;
+    int field_44;
+
+} HikvisionGroupHeader;
+
 typedef struct HikvisionContext {
     HikvisionHeader header;
+    HikvisionGroupHeader group_header;
 } HikvisionContext; 
 
 
-int hikvision_get_resolution(AVFormatContext *ctx);
-int hikvision_parse_mediainfo(AVFormatContext *ctx);
 int hikvision_parse_file_header(AVFormatContext *ctx);
+int hikvision_parse_mediainfo(AVFormatContext *ctx);
+int hikvision_get_resolution(AVFormatContext *ctx);
+unsigned int hikvision_parse_group(AVFormatContext *ctx, int group_id);
+int hikvision_parse_group_header(AVFormatContext *ctx);
+int hikvision_search_start_code(AVFormatContext *ctx, int group_id);
+int hikvision_get_stream(AVFormatContext *ctx);
+int hikvision_update_payload_info(AVFormatContext *ctx);
 
 #endif

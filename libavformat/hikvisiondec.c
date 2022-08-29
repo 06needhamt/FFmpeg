@@ -39,13 +39,13 @@ int hikvision_parse_file_header(AVFormatContext *ctx) {
     priv->header.field_32 = avio_rl32(pb);
 
     av_log(ctx, AV_LOG_INFO, "Version: %i\n", priv->header.version);
-    av_log(ctx, AV_LOG_INFO, "Field_08: %08X\n", priv->header.field_8);
-    av_log(ctx, AV_LOG_INFO, "Field_18: %04X\n", priv->header.field_18);
-    av_log(ctx, AV_LOG_INFO, "Field_20: %04X\n", priv->header.field_20);
-    av_log(ctx, AV_LOG_INFO, "Field_22: %04X\n", priv->header.field_22);
-    av_log(ctx, AV_LOG_INFO, "Field_24: %08X\n", priv->header.field_24);
-    av_log(ctx, AV_LOG_INFO, "Field_28: %08X\n", priv->header.field_28);
-    av_log(ctx, AV_LOG_INFO, "Field_32: %08X\n", priv->header.field_32);
+    av_log(ctx, AV_LOG_INFO, "Field_08: 0x%08X\n", priv->header.field_8);
+    av_log(ctx, AV_LOG_INFO, "Field_18: 0x%04X\n", priv->header.field_18);
+    av_log(ctx, AV_LOG_INFO, "Field_20: 0x%04X\n", priv->header.field_20);
+    av_log(ctx, AV_LOG_INFO, "Field_22: 0x%04X\n", priv->header.field_22);
+    av_log(ctx, AV_LOG_INFO, "Field_24: 0x%08X\n", priv->header.field_24);
+    av_log(ctx, AV_LOG_INFO, "Field_28: 0x%08X\n", priv->header.field_28);
+    av_log(ctx, AV_LOG_INFO, "Field_32: 0x%08X\n", priv->header.field_32);
 
     ret = hikvision_get_resolution(ctx);
 
@@ -56,6 +56,27 @@ int hikvision_parse_mediainfo(AVFormatContext *ctx) {
     int ret = 0;
     HikvisionContext *priv = ctx->priv_data;
     AVIOContext *pb = ctx->pb;
+
+    avio_seek(pb, 8, SEEK_SET);
+    priv->header.media_info.field_8 = avio_rl16(pb);
+
+    if(priv->header.media_info.field_8 != 1)
+        return AVERROR_INVALIDDATA;
+
+    priv->header.media_info.field_10 = avio_rl16(pb);
+    priv->header.media_info.field_12 = avio_rl16(pb);
+    priv->header.media_info.field_14 = avio_r8(pb);
+    priv->header.media_info.field_15 = avio_r8(pb);
+    priv->header.media_info.field_16 = avio_rl32(pb);
+    priv->header.media_info.field_20 = avio_rl32(pb);
+
+    av_log(ctx, AV_LOG_INFO, "Field_08: 0x%04X\n", priv->header.media_info.field_8);
+    av_log(ctx, AV_LOG_INFO, "Field_10: 0x%04X\n", priv->header.media_info.field_10);
+    av_log(ctx, AV_LOG_INFO, "Field_12: 0x%04X\n", priv->header.media_info.field_12);
+    av_log(ctx, AV_LOG_INFO, "Field_14: 0x%02X\n", priv->header.media_info.field_14);
+    av_log(ctx, AV_LOG_INFO, "Field_15: 0x%02X\n", priv->header.media_info.field_15);
+    av_log(ctx, AV_LOG_INFO, "Field_16: 0x%08X\n", priv->header.media_info.field_16);
+    av_log(ctx, AV_LOG_INFO, "Field_20: 0x%08X\n", priv->header.media_info.field_20);
 
     return ret;
 }
@@ -106,12 +127,163 @@ int hikvision_get_resolution(AVFormatContext *ctx) {
         break;
     }
 
-    av_log(ctx, AV_LOG_INFO, "Switcher: %04X\n", switcher_width);
+    av_log(ctx, AV_LOG_INFO, "Switcher: 0x%04X\n", switcher_width);
     av_log(ctx, AV_LOG_INFO, "Width: %i\n", priv->header.resolution.width);
     av_log(ctx, AV_LOG_INFO, "Height: %i\n", priv->header.resolution.height);
     
     return ret;
-} 
+}
+
+unsigned int hikvision_parse_group(AVFormatContext *ctx, int group_id) 
+{
+    unsigned int ret = 0;
+    HikvisionContext *priv = ctx->priv_data;
+    AVIOContext *pb = ctx->pb;
+
+    short comparitor = -1;
+
+    avio_skip(pb, 20);
+    comparitor = avio_rl16(pb);
+    
+    av_log(ctx, AV_LOG_INFO, "Comparitor: 0x%04X\n", comparitor);
+    
+    if(group_id == 1 && comparitor == 0x1001) {
+        if(group_id < 0x2f) {
+            av_log(ctx, AV_LOG_INFO, "Need to parse group header\n");
+            avio_seek(pb, -22, SEEK_CUR);
+            ret = hikvision_parse_group_header(ctx);
+            if(ret == AVERROR_INVALIDDATA)
+                return 0xFFFF;
+            else
+                return 0x30;
+        }
+        else {
+            ret = 0xFFFF;
+            return ret;
+        }
+    }
+    else if(group_id < 0x13) {
+        av_log(ctx, AV_LOG_INFO, "Need to parse block header\n");
+    }
+
+    return 0xFFFF;
+}
+
+int hikvision_parse_group_header(AVFormatContext *ctx) 
+{
+    int ret = 0;
+    HikvisionContext *priv = ctx->priv_data;
+    AVIOContext *pb = ctx->pb;
+
+    priv->group_header.field_4 = avio_rl32(pb) - 0x1000;
+    priv->group_header.field_8 = avio_rl32(pb);
+    priv->group_header.field_12 = avio_rl32(pb);
+    priv->group_header.field_16 = avio_rl32(pb);
+    priv->group_header.field_20 = avio_rl32(pb);
+    priv->group_header.field_24 = avio_rl32(pb);
+    priv->group_header.field_28 = avio_rl32(pb);
+    avio_skip(pb, 12);
+    priv->group_header.field_44 = avio_rl32(pb);
+
+    av_log(ctx, AV_LOG_INFO, "Field_04: 0x%08X\n", priv->group_header.field_4);
+    av_log(ctx, AV_LOG_INFO, "Field_08: 0x%08X\n", priv->group_header.field_8);
+    av_log(ctx, AV_LOG_INFO, "Field_12: 0x%08X\n", priv->group_header.field_12);
+    av_log(ctx, AV_LOG_INFO, "Field_16: 0x%08X\n", priv->group_header.field_16);
+    av_log(ctx, AV_LOG_INFO, "Field_20: 0x%08X\n", priv->group_header.field_20);
+    av_log(ctx, AV_LOG_INFO, "Field_24: 0x%08X\n", priv->group_header.field_24);
+    av_log(ctx, AV_LOG_INFO, "Field_28: 0x%08X\n", priv->group_header.field_28);
+    av_log(ctx, AV_LOG_INFO, "Field_44: 0x%08X\n", priv->group_header.field_44);
+
+    if((priv->group_header.field_12 == 0x1000 || 
+     priv->group_header.field_12 == 0x1001) && 
+     (priv->group_header.field_16 - 0x1000 < 7))
+     {
+        return ret;
+     }
+
+    return AVERROR_INVALIDDATA;
+}
+
+int hikvision_search_start_code(AVFormatContext *ctx, int group_id) 
+{
+    int ret = 0;
+    unsigned char counter = 0;
+    unsigned char value = 0XFF;
+
+    HikvisionContext *priv = ctx->priv_data;
+    AVIOContext *pb = ctx->pb;
+    
+    if(group_id != 3) {
+        do {
+            value = avio_r8(pb) + counter;
+            if(value == 1) {
+                av_log(ctx, AV_LOG_INFO, "Start Code: %i\n", counter);
+                return counter;
+            }
+            counter++;
+        } while (counter < (group_id - 3));        
+    }
+
+    return -1;
+}
+
+int hikvision_get_stream(AVFormatContext *ctx) 
+{
+    int ret = 0;
+    unsigned int return_code = 0;
+
+    HikvisionContext *priv = ctx->priv_data;
+    AVIOContext *pb = ctx->pb;
+
+    int group_id = -1;
+    do {
+        avio_skip(pb, 4);
+        group_id = avio_rl32(pb);
+
+        av_log(ctx, AV_LOG_INFO, "Group ID: %i\n", group_id);
+
+        return_code = hikvision_parse_group(ctx, group_id);
+
+        av_log(ctx, AV_LOG_INFO, "Return code: %u\n", return_code);
+
+        if(return_code == 0XFFFF)
+            return 0;
+
+        if(return_code != 0) {
+            group_id--;
+            avio_skip(pb, 1);
+            ret = hikvision_search_start_code(ctx, group_id);
+
+            if(ret == -1)
+                return 0;
+
+            avio_skip(pb, ret);
+            group_id -= ret;
+        }
+
+    } while (true);
+    
+    return ret;
+
+}
+
+int hikvision_update_payload_info(AVFormatContext *ctx) 
+{
+    int ret = 0;
+    HikvisionContext *priv = ctx->priv_data;
+    AVIOContext *pb = ctx->pb;
+
+    short header_field_18 = priv->header.field_18;
+
+    if(header_field_18 < 0x2001) {
+        if(header_field_18 == 0 || 
+        (header_field_18 >= 5 && header_field_18 != 0x100) || 
+        header_field_18 < 0x1013)
+            return AVERROR_INVALIDDATA;
+    }
+
+    return 0;
+}
 
 static int hikvision_read_header(AVFormatContext *ctx)
 {
@@ -126,6 +298,7 @@ static int hikvision_read_header(AVFormatContext *ctx)
     case HIKVISION_ORIGINAL_MAGIC:
         av_log(ctx, AV_LOG_INFO, "File is an original\n");
         priv->header.version = 1;
+        hikvision_parse_file_header(ctx);
         break;
     case HIKVISION_HIKCONVERT_MAGIC:
         av_log(ctx, AV_LOG_INFO, "File is a converted file\n");
@@ -137,7 +310,10 @@ static int hikvision_read_header(AVFormatContext *ctx)
         return AVERROR_INVALIDDATA;
     }
 
-    hikvision_parse_file_header(ctx);
+    ret = hikvision_get_stream(ctx);
+    
+    if(ret != 0)
+        return AVERROR_INVALIDDATA;
 
     return ret;
 }
@@ -145,6 +321,8 @@ static int hikvision_read_header(AVFormatContext *ctx)
 static int hikvision_read_packet(AVFormatContext *ctx, AVPacket *pkt)
 {
     int ret = 0;
+
+    ret = hikvision_update_payload_info(ctx);
 
     return ret;
 }
