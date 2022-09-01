@@ -73,9 +73,21 @@ typedef struct HikvisionGroupHeader
 
 } HikvisionGroupHeader;
 
+typedef struct HikvisionBlockHeader
+{
+    int field_4;
+    int field_8;
+    int field_12;
+    int field_16;
+    int field_20;
+    int field_24;
+    int field_28;
+} HikvisionBlockHeader;
+
 typedef struct HikvisionContext {
     HikvisionHeader header;
     HikvisionGroupHeader group_header;
+    HikvisionBlockHeader block_header;
 } HikvisionContext; 
 
 
@@ -84,6 +96,7 @@ int hikvision_parse_mediainfo(AVFormatContext *ctx);
 int hikvision_get_resolution(AVFormatContext *ctx);
 unsigned int hikvision_parse_group(AVFormatContext *ctx, int group_id);
 int hikvision_parse_group_header(AVFormatContext *ctx);
+int hikvision_parse_block_header(AVFormatContext *ctx);
 int hikvision_search_start_code(AVFormatContext *ctx, int group_id);
 int hikvision_get_stream(AVFormatContext *ctx);
 int hikvision_update_payload_info(AVFormatContext *ctx);
