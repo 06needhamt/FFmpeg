@@ -231,17 +231,19 @@ int hikvision_get_stream(AVFormatContext *ctx)
 {
     int ret = 0;
     unsigned int return_code = 0;
+    int i;
 
     HikvisionContext *priv = ctx->priv_data;
     AVIOContext *pb = ctx->pb;
 
     int group_id = -1;
+
+    avio_skip(pb, 4);
+    group_id = avio_rl32(pb);
+
+    av_log(ctx, AV_LOG_INFO, "Group ID: %i\n", group_id);
+
     do {
-        avio_skip(pb, 4);
-        group_id = avio_rl32(pb);
-
-        av_log(ctx, AV_LOG_INFO, "Group ID: %i\n", group_id);
-
         return_code = hikvision_parse_group(ctx, group_id);
 
         av_log(ctx, AV_LOG_INFO, "Return code: %u\n", return_code);
@@ -249,7 +251,8 @@ int hikvision_get_stream(AVFormatContext *ctx)
         if(return_code == 0XFFFF)
             return 0;
 
-        if(return_code != 0) {
+        if((return_code + 2147483646U) < 2) {
+            av_log(ctx, AV_LOG_INFO, "Searching for start code\n");
             group_id--;
             avio_skip(pb, 1);
             ret = hikvision_search_start_code(ctx, group_id);
@@ -260,6 +263,10 @@ int hikvision_get_stream(AVFormatContext *ctx)
             avio_skip(pb, ret);
             group_id -= ret;
         }
+
+        avio_skip(pb, return_code);
+        group_id -= return_code;
+        av_log(ctx, AV_LOG_INFO, "End of group loop\n");
 
     } while (true);
     
