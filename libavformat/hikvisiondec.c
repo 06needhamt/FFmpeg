@@ -47,7 +47,7 @@ int hikvision_parse_file_header(AVFormatContext *ctx) {
     av_log(ctx, AV_LOG_INFO, "Field_28: 0x%08X\n", priv->header.field_28);
     av_log(ctx, AV_LOG_INFO, "Field_32: 0x%08X\n", priv->header.field_32);
 
-    ret = hikvision_get_resolution(ctx);
+    ret = hikvision_get_resolution(ctx, priv->header.field_28 & 0xFFFF, priv->header.field_28 >> 16);
 
     return ret;
 }
@@ -81,14 +81,11 @@ int hikvision_parse_mediainfo(AVFormatContext *ctx) {
     return ret;
 }
 
-int hikvision_get_resolution(AVFormatContext *ctx) {
+int hikvision_get_resolution(AVFormatContext *ctx, int width, int height) {
     int ret = 0;
     HikvisionContext *priv = ctx->priv_data;
 
-    unsigned short switcher_width = (unsigned short) (priv->header.field_28 & 0xFFFF);
-    unsigned short switcher_height = (unsigned short) (priv->header.field_28 >> 16);
-
-    switch (switcher_width)
+    switch (width)
     {
     case 0x1001:
         priv->header.resolution.width = 352;
@@ -123,12 +120,12 @@ int hikvision_get_resolution(AVFormatContext *ctx) {
         priv->header.resolution.height = 320;
         break;
     default:
-        priv->header.resolution.width = switcher_width;
-        priv->header.resolution.height = switcher_height;
+        priv->header.resolution.width = width;
+        priv->header.resolution.height = height;
         break;
     }
 
-    av_log(ctx, AV_LOG_INFO, "Switcher: 0x%04X\n", switcher_width);
+    av_log(ctx, AV_LOG_INFO, "Switcher: 0x%04X\n", width);
     av_log(ctx, AV_LOG_INFO, "Width: %i\n", priv->header.resolution.width);
     av_log(ctx, AV_LOG_INFO, "Height: %i\n", priv->header.resolution.height);
     
@@ -142,7 +139,8 @@ unsigned int hikvision_parse_group(AVFormatContext *ctx, int group_id)
     AVIOContext *pb = ctx->pb;
 
     short comparitor = -1;
-    int int_val = -1;
+    unsigned int int_val = -1;
+    unsigned int read_val = -1;
 
     avio_skip(pb, 20);
     comparitor = avio_rl16(pb);
@@ -171,26 +169,32 @@ unsigned int hikvision_parse_group(AVFormatContext *ctx, int group_id)
         if(ret == 0)
             return AVERROR_INVALIDDATA;
 
-        avio_skip(pb, 4);
-        int_val = avio_rl32(pb);
+        int_val = avio_r8(pb);
         if(int_val <= group_id - 0x14U) {
             av_log(ctx, AV_LOG_INFO, "Need block header\n");
 
             if(priv->header.version == 0) {
-                if(avio_rl32(pb) != 0x1000000)
-                    ret = 1;
-                else 
-                    ret = 0;
+                ret = 0;
             }
             else if(priv->header.version != 1) {
                 ret = 1;
             }
+            
+            avio_skip(pb, 15);
+            read_val = avio_r8(pb);
 
             if(ret != 0) { 
                 av_log(ctx, AV_LOG_INFO, "int_val was not 0\n");
-                int_val += 20;
+                int_val += read_val + 20;
                 return int_val;
-            }          
+            }
+            else {
+                int_val += read_val;
+            }
+
+            // TODO: Output Payload
+
+            return read_val + 20;          
         }
     }
 
@@ -274,9 +278,9 @@ int hikvision_parse_block_header(AVFormatContext *ctx)
         if(fval < 0.0)
             fval += 4.294967e+09;
 
-        if(priv->header.field_8 != 0x20020302) {
+        if(priv->header.field_8 == 0x20020302) {
             av_log(ctx, AV_LOG_INFO, "Need to parse resolution\n");
-            hikvision_get_resolution(ctx);
+            hikvision_get_resolution(ctx, priv->group_header.field_20, priv->header.field_18);
         }
 
         buffer_10 = avio_rl16(pb);

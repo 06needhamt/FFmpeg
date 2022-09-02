@@ -93,7 +93,7 @@ typedef struct HikvisionContext {
 
 int hikvision_parse_file_header(AVFormatContext *ctx);
 int hikvision_parse_mediainfo(AVFormatContext *ctx);
-int hikvision_get_resolution(AVFormatContext *ctx);
+int hikvision_get_resolution(AVFormatContext *ctx, int width, int height);
 unsigned int hikvision_parse_group(AVFormatContext *ctx, int group_id);
 int hikvision_parse_group_header(AVFormatContext *ctx);
 int hikvision_parse_block_header(AVFormatContext *ctx);
