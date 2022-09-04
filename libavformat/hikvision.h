@@ -50,6 +50,9 @@ typedef struct HikvisionHeader {
     int magic;
     int version;
     int field_8;
+    short field_12;
+    short field_14;
+    short field_16;
     short field_18;
     short field_20;
     short field_22;

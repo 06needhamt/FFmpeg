@@ -30,7 +30,9 @@ int hikvision_parse_file_header(AVFormatContext *ctx) {
 
     avio_seek(pb, 8, SEEK_SET);
     priv->header.field_8 = avio_rl32(pb);
-    avio_seek(pb, 18, SEEK_SET);
+    priv->header.field_12 = avio_rl16(pb);
+    priv->header.field_14 = avio_rl16(pb);
+    priv->header.field_16 = avio_rl16(pb);
     priv->header.field_18 = avio_rl16(pb);
     priv->header.field_20 = avio_rl16(pb);
     priv->header.field_22 = avio_rl16(pb);
@@ -40,6 +42,9 @@ int hikvision_parse_file_header(AVFormatContext *ctx) {
 
     av_log(ctx, AV_LOG_INFO, "Version: %i\n", priv->header.version);
     av_log(ctx, AV_LOG_INFO, "Field_08: 0x%08X\n", priv->header.field_8);
+    av_log(ctx, AV_LOG_INFO, "Field_12: 0x%04X\n", priv->header.field_12);
+    av_log(ctx, AV_LOG_INFO, "Field_14: 0x%04X\n", priv->header.field_14);
+    av_log(ctx, AV_LOG_INFO, "Field_16: 0x%04X\n", priv->header.field_16);
     av_log(ctx, AV_LOG_INFO, "Field_18: 0x%04X\n", priv->header.field_18);
     av_log(ctx, AV_LOG_INFO, "Field_20: 0x%04X\n", priv->header.field_20);
     av_log(ctx, AV_LOG_INFO, "Field_22: 0x%04X\n", priv->header.field_22);
