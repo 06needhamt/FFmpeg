@@ -386,6 +386,10 @@ static int hikvision_read_header(AVFormatContext *ctx)
     HikvisionContext *priv = ctx->priv_data;
     AVIOContext *pb = ctx->pb;
 
+    AVStream *vstream = NULL;
+    AVCodec *vcodec = NULL;
+    AVCodecParameters *vcodec_params = NULL;
+    FFStream *sti;
     priv->header.magic = avio_rl32(pb);
 
     switch (priv->header.magic)
@@ -405,20 +409,54 @@ static int hikvision_read_header(AVFormatContext *ctx)
         return AVERROR_INVALIDDATA;
     }
 
-    ret = hikvision_get_stream(ctx);
+    avio_seek(pb, 108, SEEK_SET);
+
+    av_log(ctx, AV_LOG_DEBUG, "Demuxing H264 Video Stream\n");
+
+    vcodec = avcodec_find_decoder(AV_CODEC_ID_H264);
+    vstream = avformat_new_stream(ctx, vcodec);
+    vcodec_params = vstream->codecpar;
+
+    if (!vstream || !vcodec_params)
+    {
+        ret = AVERROR_INVALIDDATA;
+    }
     
-    if(ret != 0)
-        return AVERROR_INVALIDDATA;
+    sti = ffstream(vstream);
+
+    vstream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
+    vstream->codecpar->codec_id = AV_CODEC_ID_H264;
+    sti->need_parsing = AVSTREAM_PARSE_FULL_RAW;
+
+    //vstream->avg_frame_rate = 30.0;
+    avpriv_set_pts_info(vstream, 64, 1, 1200000);
+
+    //ret = hikvision_get_stream(ctx);
+    
+    //if(ret != 0)
+       // return AVERROR_INVALIDDATA;
 
     return ret;
 }
 
 static int hikvision_read_packet(AVFormatContext *ctx, AVPacket *pkt)
 {
-    int ret = 0;
+    HikvisionContext *raw = ctx->priv_data;
+    int ret, size;
 
-    ret = hikvision_update_payload_info(ctx);
+    size = 1024;
 
+    if ((ret = av_new_packet(pkt, size)) < 0)
+        return ret;
+
+    pkt->pos = avio_tell(ctx->pb);
+    pkt->stream_index = 0;
+    ret = avio_read_partial(ctx->pb, pkt->data, size);
+    if (ret < 0) {
+        av_packet_unref(pkt);
+        return ret;
+    }
+    av_shrink_packet(pkt, ret);
     return ret;
 }
 
