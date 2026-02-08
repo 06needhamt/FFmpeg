@@ -587,6 +587,15 @@ const FFOutputFormat ff_obu_muxer = {
 };
 #endif
 
+#if CONFIG_RAWSTREAM_MUXER
+const FFOutputFormat ff_rawstream_muxer = {
+    .p.name            = "rawstream",
+    .p.long_name       = NULL_IF_CONFIG_SMALL("raw stream"),
+    .write_packet      = ff_raw_write_packet,
+    .p.flags           = AVFMT_NOTIMESTAMPS,
+};
+#endif
+
 #if CONFIG_RAWVIDEO_MUXER
 const FFOutputFormat ff_rawvideo_muxer = {
     .p.name            = "rawvideo",

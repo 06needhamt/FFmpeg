@@ -395,6 +395,7 @@ extern const FFInputFormat  ff_pvf_demuxer;
 extern const FFInputFormat  ff_qcp_demuxer;
 extern const FFInputFormat  ff_qoa_demuxer;
 extern const FFInputFormat  ff_r3d_demuxer;
+extern const FFOutputFormat ff_rawstream_muxer;
 extern const FFInputFormat  ff_rawvideo_demuxer;
 extern const FFOutputFormat ff_rawvideo_muxer;
 extern const FFInputFormat  ff_rcwt_demuxer;

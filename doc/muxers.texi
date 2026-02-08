@@ -156,6 +156,9 @@ AV1 low overhead Open Bitstream Units muxer.
 Temporal delimiter OBUs will be inserted in all temporal units of the
 stream.
 
+@item rawstream @emph{video|audio}
+Mux any stream to a file verbatim with no container
+
 @item rawvideo @emph{video} (yuv, rgb)
 Raw uncompressed video.
 
