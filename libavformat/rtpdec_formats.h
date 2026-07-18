@@ -91,5 +91,6 @@ extern const RTPDynamicProtocolHandler ff_vc2hq_dynamic_handler;
 extern const RTPDynamicProtocolHandler ff_vorbis_dynamic_handler;
 extern const RTPDynamicProtocolHandler ff_vp8_dynamic_handler;
 extern const RTPDynamicProtocolHandler ff_vp9_dynamic_handler;
+extern const RTPDynamicProtocolHandler ff_vvc_dynamic_handler;
 
 #endif /* AVFORMAT_RTPDEC_FORMATS_H */

@@ -370,6 +370,92 @@ err:
     return ret;
 }
 
+
+static int extradata2psets_vvc(AVFormatContext *fmt, const AVCodecParameters *par,
+                               char **out)
+{
+    char *psets, *p;
+    const uint8_t *r;
+    const uint8_t *extradata = par->extradata;
+    int extradata_size = par->extradata_size;
+    /* sprop attribute name per H.266 NAL unit type, RFC 9328 Section 7.2 */
+    static const struct {
+        uint8_t nal_type;
+        const char *name;
+    } sprops[] = {
+        { 13 /* DCI_NUT */, "sprop-dci" },
+        { 14 /* VPS_NUT */, "sprop-vps" },
+        { 15 /* SPS_NUT */, "sprop-sps" },
+        { 16 /* PPS_NUT */, "sprop-pps" },
+    };
+    int i;
+
+    *out = NULL;
+
+    if (par->extradata_size > MAX_EXTRADATA_SIZE) {
+        av_log(fmt, AV_LOG_ERROR, "Too much extradata!\n");
+        return AVERROR_INVALIDDATA;
+    }
+    if ((par->extradata[0] & 0xf8) == 0xf8) {
+        /* TODO: unpack parameter sets out of vvcC formatted extradata */
+        av_log(fmt, AV_LOG_WARNING,
+               "Only Annex B formatted extradata is supported for the "
+               "generation of VVC sprop parameters, none will be signaled\n");
+        return 0;
+    }
+
+    psets = av_mallocz(MAX_PSET_SIZE);
+    if (!psets) {
+        av_log(fmt, AV_LOG_ERROR,
+               "Cannot allocate memory for the parameter sets.\n");
+        return AVERROR(ENOMEM);
+    }
+    p = psets;
+
+    for (i = 0; i < FF_ARRAY_ELEMS(sprops); i++) {
+        int have_attr = 0;
+        r = ff_nal_find_startcode(extradata, extradata + extradata_size);
+        while (r < extradata + extradata_size) {
+            const uint8_t *r1;
+            uint8_t nal_type;
+
+            while (!*(r++));
+            r1 = ff_nal_find_startcode(r, extradata + extradata_size);
+            if (r1 - r < 2) {
+                r = r1;
+                continue;
+            }
+            nal_type = (r[1] >> 3) & 0x1f;
+            if (nal_type != sprops[i].nal_type) {
+                r = r1;
+                continue;
+            }
+            if (!have_attr) {
+                if (av_strlcatf(psets, MAX_PSET_SIZE, "%s%s=",
+                                p == psets ? "" : "; ",
+                                sprops[i].name) >= MAX_PSET_SIZE)
+                    goto fail;
+                have_attr = 1;
+            } else {
+                if (av_strlcat(psets, ",", MAX_PSET_SIZE) >= MAX_PSET_SIZE)
+                    goto fail;
+            }
+            p = psets + strlen(psets);
+            if (!av_base64_encode(p, MAX_PSET_SIZE - (p - psets), r, r1 - r))
+                goto fail;
+            r = r1;
+        }
+        p = psets + strlen(psets);
+    }
+
+    *out = psets;
+    return 0;
+fail:
+    av_log(fmt, AV_LOG_ERROR, "Cannot fit VVC parameter sets into the SDP\n");
+    av_free(psets);
+    return AVERROR_INVALIDDATA;
+}
+
 static int extradata2config(AVFormatContext *s, const AVCodecParameters *par,
                             char **out)
 {
@@ -607,6 +693,17 @@ static int sdp_write_media_attributes(char *buff, int size, const AVStream *st,
                 return ret;
         }
         av_strlcatf(buff, size, "a=rtpmap:%d H265/90000\r\n", payload_type);
+        if (config)
+            av_strlcatf(buff, size, "a=fmtp:%d %s\r\n",
+                                     payload_type, config);
+        break;
+    case AV_CODEC_ID_VVC:
+        if (p->extradata_size) {
+            ret = extradata2psets_vvc(fmt, p, &config);
+            if (ret < 0)
+                return ret;
+        }
+        av_strlcatf(buff, size, "a=rtpmap:%d H266/90000\r\n", payload_type);
         if (config)
             av_strlcatf(buff, size, "a=fmtp:%d %s\r\n",
                                      payload_type, config);

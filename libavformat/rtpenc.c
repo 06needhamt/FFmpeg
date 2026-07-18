@@ -58,6 +58,7 @@ static int is_supported(enum AVCodecID id)
     case AV_CODEC_ID_H263P:
     case AV_CODEC_ID_H264:
     case AV_CODEC_ID_HEVC:
+    case AV_CODEC_ID_VVC:
     case AV_CODEC_ID_MPEG1VIDEO:
     case AV_CODEC_ID_MPEG2VIDEO:
     case AV_CODEC_ID_MPEG4:
@@ -226,6 +227,17 @@ static int rtp_write_header(AVFormatContext *s1)
          * libavcodec/hevc.c). */
         if (st->codecpar->extradata_size > 21 && st->codecpar->extradata[0] == 1) {
             s->nal_length_size = (st->codecpar->extradata[21] & 0x03) + 1;
+        }
+        break;
+    case AV_CODEC_ID_VVC:
+        /* Check for the standardized vvcC version of extradata
+         * (ISO/IEC 14496-15). Its first byte carries five reserved bits
+         * equal to '11111' followed by LengthSizeMinusOne and
+         * ptl_present_flag, which distinguishes it from an Annex B
+         * start code prefix. */
+        if (st->codecpar->extradata_size > 0 &&
+            (st->codecpar->extradata[0] & 0xf8) == 0xf8) {
+            s->nal_length_size = ((st->codecpar->extradata[0] >> 1) & 0x03) + 1;
         }
         break;
     case AV_CODEC_ID_MJPEG:
@@ -637,6 +649,9 @@ static int rtp_write_packet(AVFormatContext *s1, AVPacket *pkt)
         break;
     case AV_CODEC_ID_HEVC:
         ff_rtp_send_h264_hevc(s1, pkt->data, size);
+        break;
+    case AV_CODEC_ID_VVC:
+        ff_rtp_send_vvc(s1, pkt->data, size);
         break;
     case AV_CODEC_ID_VORBIS:
     case AV_CODEC_ID_THEORA:

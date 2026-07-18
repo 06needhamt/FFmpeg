@@ -81,6 +81,7 @@ OBJS-$(CONFIG_RTPDEC)                    += rdt.o                       \
                                             rtpdec_vc2hq.o              \
                                             rtpdec_vp8.o                \
                                             rtpdec_vp9.o                \
+                                            rtpdec_vvc.o                \
                                             rtpdec_xiph.o
 OBJS-$(CONFIG_RTPENC_CHAIN)              += rtpenc_chain.o rtp.o
 OBJS-$(CONFIG_SRTP)                      += srtp.o
@@ -548,6 +549,7 @@ OBJS-$(CONFIG_RTP_MUXER)                 += rtp.o         \
                                             rtpenc_vc2hq.o              \
                                             rtpenc_vp8.o  \
                                             rtpenc_vp9.o                \
+                                            rtpenc_vvc.o                \
                                             rtpenc_xiph.o
 OBJS-$(CONFIG_RTSP_DEMUXER)              += rtsp.o rtspdec.o httpauth.o
 OBJS-$(CONFIG_RTSP_MUXER)                += rtsp.o rtspenc.o httpauth.o
