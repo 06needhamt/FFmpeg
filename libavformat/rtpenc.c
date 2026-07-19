@@ -95,6 +95,8 @@ static int is_supported(enum AVCodecID id)
     case AV_CODEC_ID_RAWVIDEO:
     case AV_CODEC_ID_BITPACKED:
     case AV_CODEC_ID_G728:
+    case AV_CODEC_ID_TTML:
+    case AV_CODEC_ID_TEXT:
         return 1;
     default:
         return 0;
@@ -323,6 +325,10 @@ static int rtp_write_header(AVFormatContext *s1)
         break;
     case AV_CODEC_ID_AAC:
         s->max_frames_per_packet = 50;
+        break;
+    case AV_CODEC_ID_TEXT:
+        /* RFC 4103 Section 6: fixed 1000 Hz clock for T.140. */
+        avpriv_set_pts_info(st, 32, 1, 1000);
         break;
     default:
         break;
@@ -671,6 +677,12 @@ static int rtp_write_packet(AVFormatContext *s1, AVPacket *pkt)
         break;
     case AV_CODEC_ID_JPEGXS:
         ff_rtp_send_jpegxs(s1, pkt->data, size);
+        break;
+    case AV_CODEC_ID_TTML:
+        ff_rtp_send_ttml(s1, pkt->data, size, pkt->duration);
+        break;
+    case AV_CODEC_ID_TEXT:
+        ff_rtp_send_t140(s1, pkt->data, size);
         break;
     case AV_CODEC_ID_VORBIS:
     case AV_CODEC_ID_THEORA:

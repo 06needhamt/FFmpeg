@@ -81,6 +81,8 @@ OBJS-$(CONFIG_RTPDEC)                    += rdt.o                       \
                                             rtpdec_qt.o                 \
                                             rtpdec_rfc4175.o            \
                                             rtpdec_svq3.o               \
+                                            rtpdec_t140.o               \
+                                            rtpdec_ttml.o               \
                                             rtpdec_vc2hq.o              \
                                             rtpdec_vp8.o                \
                                             rtpdec_vp9.o                \
@@ -552,6 +554,8 @@ OBJS-$(CONFIG_RTP_MUXER)                 += rtp.o         \
                                             rtpenc_mpv.o     \
                                             rtpenc.o      \
                                             rtpenc_rfc4175.o    \
+                                            rtpenc_t140.o               \
+                                            rtpenc_ttml.o               \
                                             rtpenc_vc2hq.o              \
                                             rtpenc_vp8.o  \
                                             rtpenc_vp9.o                \

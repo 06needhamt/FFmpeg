@@ -61,6 +61,10 @@ struct RTPMuxContext {
     int flags;
 
     unsigned int frame_count;
+
+    /* T.140 (RFC 4103) idle-period tracking */
+    uint32_t t140_last_timestamp;
+    int t140_started;
 };
 
 typedef struct RTPMuxContext RTPMuxContext;
@@ -83,11 +87,13 @@ void ff_rtp_send_data(AVFormatContext *s1, const uint8_t *buf1, int len, int m);
 
 void ff_rtp_send_h264_hevc(AVFormatContext *s1, const uint8_t *buf1, int size);
 void ff_rtp_send_vvc(AVFormatContext *s1, const uint8_t *buf1, int size);
+void ff_rtp_send_ttml(AVFormatContext *s1, const uint8_t *buf, int size, int64_t duration);
 void ff_rtp_send_evc(AVFormatContext *s1, const uint8_t *buf1, int size);
 void ff_rtp_send_apv(AVFormatContext *s1, const uint8_t *buf, int size);
 void ff_rtp_send_jpegxs(AVFormatContext *s1, const uint8_t *buf, int size);
 void ff_rtp_send_h261(AVFormatContext *s1, const uint8_t *buf1, int size);
 void ff_rtp_send_h263(AVFormatContext *s1, const uint8_t *buf1, int size);
+void ff_rtp_send_t140(AVFormatContext *s1, const uint8_t *buf, int size);
 void ff_rtp_send_h263_rfc2190(AVFormatContext *s1, const uint8_t *buf1, int size,
                               const uint8_t *mb_info, int mb_info_size);
 void ff_rtp_send_aac(AVFormatContext *s1, const uint8_t *buff, int size);

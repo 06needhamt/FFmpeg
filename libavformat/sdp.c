@@ -1055,6 +1055,18 @@ static int sdp_write_media_attributes(char *buff, int size, const AVStream *st,
                                      payload_type);
         }
         break;
+    case AV_CODEC_ID_TTML:
+        /* RFC 8759: a 90 kHz clock is used and the codecs parameter
+         * (Section 6.1.3) is required. FFmpeg's TTML encoder only emits
+         * text content, so advertise the IMSC1 text profile. */
+        av_strlcatf(buff, size, "a=rtpmap:%d ttml+xml/90000\r\n"
+                                "a=fmtp:%d charset=utf-8;codecs=im1t\r\n",
+                                 payload_type, payload_type);
+        break;
+    case AV_CODEC_ID_TEXT:
+        /* RFC 4103: T.140 text uses a fixed 1000 Hz clock. */
+        av_strlcatf(buff, size, "a=rtpmap:%d t140/1000\r\n", payload_type);
+        break;
     default:
         /* Nothing special to do here... */
         break;
@@ -1078,7 +1090,12 @@ int ff_sdp_write_media(char *buff, int size, const AVStream *st, int idx,
     switch (p->codec_type) {
         case AVMEDIA_TYPE_VIDEO   : type = "video"      ; break;
         case AVMEDIA_TYPE_AUDIO   : type = "audio"      ; break;
-        case AVMEDIA_TYPE_SUBTITLE: type = "text"       ; break;
+        case AVMEDIA_TYPE_SUBTITLE:
+            /* RFC 8759 Section 6.1.2 maps TTML to the "application" media
+             * type; other timed text formats such as T.140 (RFC 4103) use
+             * "text". */
+            type = p->codec_id == AV_CODEC_ID_TTML ? "application" : "text";
+            break;
         default                 : type = "application"; break;
     }
 

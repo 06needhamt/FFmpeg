@@ -61,12 +61,6 @@ static const RTPDynamicProtocolHandler speex_dynamic_handler = {
     .codec_id   = AV_CODEC_ID_SPEEX,
 };
 
-static const RTPDynamicProtocolHandler t140_dynamic_handler = { /* RFC 4103 */
-    .enc_name   = "t140",
-    .codec_type = AVMEDIA_TYPE_SUBTITLE,
-    .codec_id   = AV_CODEC_ID_TEXT,
-};
-
 extern const RTPDynamicProtocolHandler ff_rdt_video_handler;
 extern const RTPDynamicProtocolHandler ff_rdt_audio_handler;
 extern const RTPDynamicProtocolHandler ff_rdt_live_video_handler;
@@ -115,7 +109,10 @@ static const RTPDynamicProtocolHandler *const rtp_dynamic_protocol_handler_list[
     &ff_quicktime_rtp_vid_handler,
     &ff_rfc4175_rtp_handler,
     &ff_svq3_dynamic_handler,
+    &ff_t140_dynamic_handler,
     &ff_theora_dynamic_handler,
+    &ff_ttml_dynamic_handler,
+    &ff_ttml_data_dynamic_handler,
     &ff_vc2hq_dynamic_handler,
     &ff_vorbis_dynamic_handler,
     &ff_vp8_dynamic_handler,
@@ -126,7 +123,6 @@ static const RTPDynamicProtocolHandler *const rtp_dynamic_protocol_handler_list[
     &ff_opus_dynamic_handler,
     &realmedia_mp3_dynamic_handler,
     &speex_dynamic_handler,
-    &t140_dynamic_handler,
     /* rdt */
     &ff_rdt_video_handler,
     &ff_rdt_audio_handler,
