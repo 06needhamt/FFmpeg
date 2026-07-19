@@ -81,7 +81,8 @@
 #define COMMON_OPTS() \
     { "reorder_queue_size", "set number of packets to buffer for handling of reordered packets", OFFSET(reordering_queue_size), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, DEC }, \
     { "buffer_size",        "Underlying protocol send/receive buffer size",                  OFFSET(buffer_size),           AV_OPT_TYPE_INT, { .i64 = -1 }, -1, INT_MAX, DEC|ENC }, \
-    { "pkt_size",           "Underlying protocol send packet size",                          OFFSET(pkt_size),              AV_OPT_TYPE_INT, { .i64 = 1472 }, -1, INT_MAX, ENC } \
+    { "pkt_size",           "Underlying protocol send packet size",                          OFFSET(pkt_size),              AV_OPT_TYPE_INT, { .i64 = 1472 }, -1, INT_MAX, ENC }, \
+    { "flexfec_pt",         "FlexFEC (RFC 8627) repair payload type on this session, -1 to disable", OFFSET(flexfec_pt), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, 127, DEC } \
 
 
 const AVOption ff_rtsp_options[] = {
@@ -371,7 +372,10 @@ static int sdp_parse_rtpmap(AVFormatContext *s,
                par->ch_layout.nb_channels);
         break;
     case AVMEDIA_TYPE_VIDEO:
-        av_log(s, AV_LOG_DEBUG, "video codec set to: %s\n", c_name);
+    case AVMEDIA_TYPE_SUBTITLE:
+    case AVMEDIA_TYPE_DATA:
+        av_log(s, AV_LOG_DEBUG, "%s codec set to: %s\n",
+               av_get_media_type_string(par->codec_type), c_name);
         if (i > 0)
             avpriv_set_pts_info(st, 32, 1, i);
         break;
@@ -629,7 +633,20 @@ static void sdp_parse_line(AVFormatContext *s, SDPParseState *s1,
             rtsp_st = rt->rtsp_streams[rt->nb_rtsp_streams - 1];
             if (rtsp_st->stream_index >= 0) {
                 st = s->streams[rtsp_st->stream_index];
-                sdp_parse_rtpmap(s, st, rtsp_st, payload_type, p);
+                if (payload_type == rtsp_st->sdp_payload_type ||
+                    !rtsp_st->dynamic_handler ||
+                    !rtsp_st->dynamic_handler->parse_sdp_a_line) {
+                    sdp_parse_rtpmap(s, st, rtsp_st, payload_type, p);
+                } else {
+                    /* rtpmap for a secondary payload type on the same
+                     * media (e.g. the embedded encoding of an RFC 2198
+                     * RED stream): let the primary handler record it
+                     * instead of clobbering the stream's codec, since
+                     * only the first payload type is depacketized. */
+                    rtsp_st->dynamic_handler->parse_sdp_a_line(s,
+                        rtsp_st->stream_index,
+                        rtsp_st->dynamic_protocol_context, buf);
+                }
             }
             s1->seen_rtpmap = 1;
             if (s1->seen_fmtp) {
@@ -920,6 +937,9 @@ int ff_rtsp_open_transport_ctx(AVFormatContext *s, RTSPStream *rtsp_st)
             ff_rtp_parse_set_crypto(rtsp_st->transport_priv,
                                     rtsp_st->crypto_suite,
                                     rtsp_st->crypto_params);
+        if (rt->flexfec_pt >= 0)
+            ff_rtp_parse_set_flexfec(rtsp_st->transport_priv,
+                                     rt->flexfec_pt);
     }
 
     return 0;

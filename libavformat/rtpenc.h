@@ -24,6 +24,8 @@
 #include "avformat.h"
 #include "rtp.h"
 
+#define FF_RTP_T140_RED_MAX_GEN 2
+
 struct RTPMuxContext {
     const AVClass *av_class;
     AVFormatContext *ic;
@@ -63,6 +65,16 @@ struct RTPMuxContext {
     unsigned int frame_count;
 
     /* T.140 (RFC 4103) idle-period tracking */
+    uint32_t t140_last_timestamp;
+    int t140_started;
+
+    /* RFC 4103 T.140 / T.140-RED state */
+    int t140_red; /**< redundant generations (option) */
+    int t140_red_pt;  /**< payload type of embedded t140 blocks */
+    uint8_t *t140_red_buf[FF_RTP_T140_RED_MAX_GEN];
+    int t140_red_len[FF_RTP_T140_RED_MAX_GEN];
+    uint32_t t140_red_ts[FF_RTP_T140_RED_MAX_GEN];
+    int t140_red_count;
     uint32_t t140_last_timestamp;
     int t140_started;
 };
@@ -106,6 +118,7 @@ void ff_rtp_send_vp8(AVFormatContext *s1, const uint8_t *buff, int size);
 void ff_rtp_send_vp9(AVFormatContext *s1, const uint8_t *buff, int size);
 void ff_rtp_send_av1(AVFormatContext *s1, const uint8_t *buf1, int size, int is_keyframe);
 void ff_rtp_send_jpeg(AVFormatContext *s1, const uint8_t *buff, int size);
+void ff_rtp_send_t140(AVFormatContext *s1, const uint8_t *buf, int size);
 void ff_rtp_send_raw_rfc4175(AVFormatContext *s1, const uint8_t *buf, int size, int interlaced, int field);
 
 const uint8_t *ff_h263_find_resync_marker_reverse(const uint8_t *restrict start,

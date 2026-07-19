@@ -32,6 +32,7 @@
 #include "srtp.h"
 #include "url.h"
 #include "rtpdec.h"
+#include "rtpdec_flexfec.h"
 #include "rtpdec_formats.h"
 #include "internal.h"
 
@@ -107,6 +108,8 @@ static const RTPDynamicProtocolHandler *const rtp_dynamic_protocol_handler_list[
     &ff_qt_rtp_vid_handler,
     &ff_quicktime_rtp_aud_handler,
     &ff_quicktime_rtp_vid_handler,
+    &ff_red_audio_dynamic_handler,
+    &ff_red_text_dynamic_handler,
     &ff_rfc4175_rtp_handler,
     &ff_svq3_dynamic_handler,
     &ff_t140_dynamic_handler,
@@ -584,6 +587,21 @@ void ff_rtp_parse_set_dynamic_protocol(RTPDemuxContext *s, PayloadContext *ctx,
     s->handler                  = handler;
 }
 
+int ff_rtp_parse_set_flexfec(RTPDemuxContext *s, int payload_type)
+{
+    if (payload_type < 0 || payload_type > 127)
+        return AVERROR(EINVAL);
+    if (!s->flexfec) {
+        s->flexfec = ff_flexfec_alloc(s->ic);
+        if (!s->flexfec)
+            return AVERROR(ENOMEM);
+    }
+    s->flexfec_pt = payload_type;
+    av_log(s->ic, AV_LOG_VERBOSE,
+           "FlexFEC recovery enabled, repair payload type %d\n", payload_type);
+    return 0;
+}
+
 void ff_rtp_parse_set_crypto(RTPDemuxContext *s, const char *suite,
                              const char *params)
 {
@@ -817,8 +835,22 @@ static int rtp_parse_queued_packet(RTPDemuxContext *s, AVPacket *pkt)
         return -1;
 
     if (!has_next_packet(s)) {
-        int pkt_missed  = s->queue->seq - s->seq - 1;
+        int pkt_missed;
 
+        if (s->flexfec) {
+            uint8_t *rbuf;
+            int rlen;
+            if (ff_flexfec_recover(s->flexfec, (uint16_t)(s->seq + 1),
+                                   s->ssrc, &rbuf, &rlen) == 0) {
+                /* leave the queue intact; it drains on the next calls
+                 * now that the gap has been filled */
+                rv = rtp_parse_packet_internal(s, pkt, rbuf, rlen);
+                av_free(rbuf);
+                return rv;
+            }
+        }
+
+        pkt_missed = s->queue->seq - s->seq - 1;
         if (pkt_missed < 0)
             pkt_missed += UINT16_MAX;
         av_log(s->ic, AV_LOG_WARNING,
@@ -871,6 +903,26 @@ static int rtp_parse_one_packet(RTPDemuxContext *s, AVPacket *pkt,
         return rtcp_parse_packet(s, buf, len);
     }
 
+    if (s->flexfec) {
+        int pt = buf[1] & 0x7f;
+        if (pt == s->flexfec_pt) {
+            uint8_t *rbuf;
+            int rlen;
+            ff_flexfec_add_repair(s->flexfec, buf, len);
+            /* a repair packet may plug an outstanding gap right away */
+            if (s->queue_len > 0 && !has_next_packet(s) &&
+                ff_flexfec_recover(s->flexfec, (uint16_t)(s->seq + 1),
+                                   s->ssrc, &rbuf, &rlen) == 0) {
+                rv = rtp_parse_packet_internal(s, pkt, rbuf, rlen);
+                av_free(rbuf);
+                return rv;
+            }
+            return -1;
+        } else if (pt == s->payload_type) {
+            ff_flexfec_add_source(s->flexfec, buf, len);
+        }
+    }
+
     if (s->st) {
         int64_t received = av_gettime_relative();
         uint32_t arrival_ts = av_rescale_q(received, AV_TIME_BASE_Q,
@@ -902,6 +954,16 @@ static int rtp_parse_one_packet(RTPDemuxContext *s, AVPacket *pkt,
             if (rv < 0)
                 return rv;
             *bufptr = NULL;
+            if (s->flexfec) {
+                uint8_t *rbuf;
+                int rlen;
+                if (ff_flexfec_recover(s->flexfec, (uint16_t)(s->seq + 1),
+                                       s->ssrc, &rbuf, &rlen) == 0) {
+                    rv = rtp_parse_packet_internal(s, pkt, rbuf, rlen);
+                    av_free(rbuf);
+                    return rv;
+                }
+            }
             /* Return the first enqueued packet if the queue is full,
              * even if we're missing something */
             if (s->queue_len >= s->queue_size) {
@@ -938,6 +1000,7 @@ int ff_rtp_parse_packet(RTPDemuxContext *s, AVPacket *pkt,
 void ff_rtp_parse_close(RTPDemuxContext *s)
 {
     ff_rtp_reset_packet_queue(s);
+    ff_flexfec_free(&s->flexfec);
     ff_srtp_free(&s->srtp);
     av_free(s);
 }

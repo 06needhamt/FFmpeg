@@ -41,6 +41,7 @@ typedef struct RTPDynamicProtocolHandler RTPDynamicProtocolHandler;
 #define RTP_NOTS_VALUE ((uint32_t)-1)
 
 typedef struct RTPDemuxContext RTPDemuxContext;
+struct FFFlexFECContext;
 RTPDemuxContext *ff_rtp_parse_open(AVFormatContext *s1, AVStream *st,
                                    int payload_type, int queue_size);
 void ff_rtp_parse_set_dynamic_protocol(RTPDemuxContext *s, PayloadContext *ctx,
@@ -50,6 +51,11 @@ void ff_rtp_parse_set_crypto(RTPDemuxContext *s, const char *suite,
 int ff_rtp_parse_packet(RTPDemuxContext *s, AVPacket *pkt,
                         uint8_t **buf, int len);
 void ff_rtp_parse_close(RTPDemuxContext *s);
+/**
+ * Enable FlexFEC (RFC 8627) recovery using repair packets received on
+ * the same RTP session with the given payload type.
+ */
+int ff_rtp_parse_set_flexfec(RTPDemuxContext *s, int payload_type);
 int64_t ff_rtp_queued_packet_time(RTPDemuxContext *s);
 void ff_rtp_reset_packet_queue(RTPDemuxContext *s);
 
@@ -188,6 +194,11 @@ struct RTPDemuxContext {
     /* dynamic payload stuff */
     const RTPDynamicProtocolHandler *handler;
     PayloadContext *dynamic_protocol_context;
+
+    /* FlexFEC (RFC 8627) receive-side recovery, active when
+     * flexfec_pt >= 0 */
+    struct FFFlexFECContext *flexfec;
+    int flexfec_pt;
 };
 
 /**

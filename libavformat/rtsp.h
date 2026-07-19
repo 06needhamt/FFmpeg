@@ -433,6 +433,12 @@ typedef struct RTSPState {
     int reordering_queue_size;
 
     /**
+     * FlexFEC (RFC 8627) repair payload type received on the same RTP
+     * session, or -1 to disable FEC recovery.
+     */
+    int flexfec_pt;
+
+    /**
      * User-Agent string
      */
     char *user_agent;

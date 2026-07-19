@@ -37,6 +37,7 @@ static const AVOption options[] = {
     { "ssrc", "Stream identifier", offsetof(RTPMuxContext, ssrc), AV_OPT_TYPE_UINT, { .i64 = 0 }, 0, UINT32_MAX, AV_OPT_FLAG_ENCODING_PARAM },
     { "cname", "CNAME to include in RTCP SR packets", offsetof(RTPMuxContext, cname), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, AV_OPT_FLAG_ENCODING_PARAM },
     { "seq", "Starting sequence number", offsetof(RTPMuxContext, seq), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, 65535, AV_OPT_FLAG_ENCODING_PARAM },
+    { "t140_red", "Number of T.140 redundancy generations (RFC 4103 text/red)", offsetof(RTPMuxContext, t140_red), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, FF_RTP_T140_RED_MAX_GEN, AV_OPT_FLAG_ENCODING_PARAM },
     { NULL },
 };
 
@@ -329,6 +330,20 @@ static int rtp_write_header(AVFormatContext *s1)
     case AV_CODEC_ID_TEXT:
         /* RFC 4103 Section 6: fixed 1000 Hz clock for T.140. */
         avpriv_set_pts_info(st, 32, 1, 1000);
+        break;
+    case AV_CODEC_ID_TEXT:
+        /* RFC 4103: t140 and text/red use a 1000 Hz clock */
+        avpriv_set_pts_info(st, 32, 1, 1000);
+        if (s->t140_red > 0) {
+            if (s->payload_type < RTP_PT_PRIVATE || s->payload_type >= 127) {
+                av_log(s1, AV_LOG_ERROR,
+                       "T.140 RED requires a dynamic payload type below 127\n");
+                goto fail;
+            }
+            /* the embedded t140 blocks use the next payload type; keep
+             * this in sync with the generated SDP */
+            s->t140_red_pt = s->payload_type + 1;
+        }
         break;
     default:
         break;
@@ -700,6 +715,9 @@ static int rtp_write_packet(AVFormatContext *s1, AVPacket *pkt)
     case AV_CODEC_ID_MJPEG:
         ff_rtp_send_jpeg(s1, pkt->data, size);
         break;
+    case AV_CODEC_ID_TEXT:
+        ff_rtp_send_t140(s1, pkt->data, size);
+        break;
     case AV_CODEC_ID_BITPACKED:
     case AV_CODEC_ID_RAWVIDEO: {
         int interlaced = st->codecpar->field_order != AV_FIELD_PROGRESSIVE;
@@ -740,7 +758,10 @@ static int rtp_write_trailer(AVFormatContext *s1)
 static void rtp_deinit(AVFormatContext *s1)
 {
     RTPMuxContext *s = s1->priv_data;
+    int i;
 
+    for (i = 0; i < FF_RTP_T140_RED_MAX_GEN; i++)
+        av_freep(&s->t140_red_buf[i]);
     av_freep(&s->buf);
 }
 

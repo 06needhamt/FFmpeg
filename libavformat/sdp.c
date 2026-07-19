@@ -1000,6 +1000,28 @@ static int sdp_write_media_attributes(char *buff, int size, const AVStream *st,
         av_strlcatf(buff, size, "a=rtpmap:%d VP8/90000\r\n",
                                  payload_type);
         break;
+    case AV_CODEC_ID_TEXT: {
+        /* RFC 4103 real-time text, optionally RED-encapsulated */
+        int64_t red = 0;
+        if (fmt && fmt->oformat && fmt->oformat->priv_class && fmt->priv_data)
+            av_opt_get_int(fmt->priv_data, "t140_red", 0, &red);
+        if (red > 0) {
+            int i;
+            av_strlcatf(buff, size, "a=rtpmap:%d red/1000\r\n"
+                                    "a=rtpmap:%d t140/1000\r\n"
+                                    "a=fmtp:%d ",
+                                    payload_type, payload_type + 1,
+                                    payload_type);
+            for (i = 0; i < red + 1; i++)
+                av_strlcatf(buff, size, "%d%s", payload_type + 1,
+                            i < red ? "/" : "");
+            av_strlcatf(buff, size, "\r\n");
+        } else {
+            av_strlcatf(buff, size, "a=rtpmap:%d t140/1000\r\n",
+                                    payload_type);
+        }
+        break;
+    }
     case AV_CODEC_ID_VP9:
         av_strlcatf(buff, size, "a=rtpmap:%d VP9/90000\r\n",
                                  payload_type);
