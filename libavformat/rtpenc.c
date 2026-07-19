@@ -59,6 +59,9 @@ static int is_supported(enum AVCodecID id)
     case AV_CODEC_ID_H264:
     case AV_CODEC_ID_HEVC:
     case AV_CODEC_ID_VVC:
+    case AV_CODEC_ID_EVC:
+    case AV_CODEC_ID_APV:
+    case AV_CODEC_ID_JPEGXS:
     case AV_CODEC_ID_MPEG1VIDEO:
     case AV_CODEC_ID_MPEG2VIDEO:
     case AV_CODEC_ID_MPEG4:
@@ -239,6 +242,13 @@ static int rtp_write_header(AVFormatContext *s1)
             (st->codecpar->extradata[0] & 0xf8) == 0xf8) {
             s->nal_length_size = ((st->codecpar->extradata[0] >> 1) & 0x03) + 1;
         }
+        break;
+    case AV_CODEC_ID_EVC:
+        /* EVC elementary streams always use four-byte length-prefixed
+         * NAL units (there is no Annex B framing); parsing the length
+         * size out of ISOBMFF evcC extradata is left as a TODO and four
+         * bytes are assumed. */
+        s->nal_length_size = 4;
         break;
     case AV_CODEC_ID_MJPEG:
     case AV_CODEC_ID_BITPACKED:
@@ -652,6 +662,15 @@ static int rtp_write_packet(AVFormatContext *s1, AVPacket *pkt)
         break;
     case AV_CODEC_ID_VVC:
         ff_rtp_send_vvc(s1, pkt->data, size);
+        break;
+    case AV_CODEC_ID_EVC:
+        ff_rtp_send_evc(s1, pkt->data, size);
+        break;
+    case AV_CODEC_ID_APV:
+        ff_rtp_send_apv(s1, pkt->data, size);
+        break;
+    case AV_CODEC_ID_JPEGXS:
+        ff_rtp_send_jpegxs(s1, pkt->data, size);
         break;
     case AV_CODEC_ID_VORBIS:
     case AV_CODEC_ID_THEORA:

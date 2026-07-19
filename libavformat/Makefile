@@ -56,9 +56,11 @@ OBJS-$(CONFIG_RTPDEC)                    += rdt.o                       \
                                             rtpdec.o                    \
                                             rtpdec_ac3.o                \
                                             rtpdec_amr.o                \
+                                            rtpdec_apv.o                \
                                             rtpdec_asf.o                \
                                             rtpdec_av1.o                \
                                             rtpdec_dv.o                 \
+                                            rtpdec_evc.o                \
                                             rtpdec_g726.o               \
                                             rtpdec_h261.o               \
                                             rtpdec_h263.o               \
@@ -67,6 +69,7 @@ OBJS-$(CONFIG_RTPDEC)                    += rdt.o                       \
                                             rtpdec_hevc.o               \
                                             rtpdec_ilbc.o               \
                                             rtpdec_jpeg.o               \
+                                            rtpdec_jpegxs.o             \
                                             rtpdec_latm.o               \
                                             rtpdec_mpa_robust.o         \
                                             rtpdec_mpeg12.o             \
@@ -537,12 +540,15 @@ OBJS-$(CONFIG_RTP_MUXER)                 += rtp.o         \
                                             rtpenc_aac.o     \
                                             rtpenc_latm.o    \
                                             rtpenc_amr.o     \
+                                            rtpenc_apv.o     \
                                             rtpenc_av1.o     \
+                                            rtpenc_evc.o     \
                                             rtpenc_h261.o    \
                                             rtpenc_h263.o    \
                                             rtpenc_h263_rfc2190.o \
                                             rtpenc_h264_hevc.o    \
                                             rtpenc_jpeg.o \
+                                            rtpenc_jpegxs.o  \
                                             rtpenc_mpv.o     \
                                             rtpenc.o      \
                                             rtpenc_rfc4175.o    \

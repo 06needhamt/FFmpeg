@@ -83,6 +83,9 @@ void ff_rtp_send_data(AVFormatContext *s1, const uint8_t *buf1, int len, int m);
 
 void ff_rtp_send_h264_hevc(AVFormatContext *s1, const uint8_t *buf1, int size);
 void ff_rtp_send_vvc(AVFormatContext *s1, const uint8_t *buf1, int size);
+void ff_rtp_send_evc(AVFormatContext *s1, const uint8_t *buf1, int size);
+void ff_rtp_send_apv(AVFormatContext *s1, const uint8_t *buf, int size);
+void ff_rtp_send_jpegxs(AVFormatContext *s1, const uint8_t *buf, int size);
 void ff_rtp_send_h261(AVFormatContext *s1, const uint8_t *buf1, int size);
 void ff_rtp_send_h263(AVFormatContext *s1, const uint8_t *buf1, int size);
 void ff_rtp_send_h263_rfc2190(AVFormatContext *s1, const uint8_t *buf1, int size,

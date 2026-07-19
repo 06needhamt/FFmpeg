@@ -456,6 +456,92 @@ fail:
     return AVERROR_INVALIDDATA;
 }
 
+static int extradata2psets_evc(AVFormatContext *fmt, const AVCodecParameters *par,
+                               char **out)
+{
+    char *psets, *p;
+    const uint8_t *extradata = par->extradata;
+    int extradata_size = par->extradata_size;
+    /* sprop attribute name per EVC NAL unit type, RFC 9584 Section 7.1 */
+    static const struct {
+        uint8_t nal_type;
+        const char *name;
+    } sprops[] = {
+        { 24 /* EVC_SPS_NUT */, "sprop-sps" },
+        { 25 /* EVC_PPS_NUT */, "sprop-pps" },
+        { 28 /* EVC_SEI_NUT */, "sprop-sei" },
+    };
+    int i;
+
+    *out = NULL;
+
+    if (par->extradata_size > MAX_EXTRADATA_SIZE) {
+        av_log(fmt, AV_LOG_ERROR, "Too much extradata!\n");
+        return AVERROR_INVALIDDATA;
+    }
+    /* length-prefixed extradata always starts with the most significant
+     * byte of a 32-bit NAL unit length, i.e. zero for any sane parameter
+     * set; ISOBMFF evcC extradata starts with configurationVersion == 1 */
+    if (par->extradata[0] != 0) {
+        /* TODO: unpack parameter sets out of evcC formatted extradata */
+        av_log(fmt, AV_LOG_WARNING,
+               "Only length-prefixed extradata is supported for the "
+               "generation of EVC sprop parameters, none will be signaled\n");
+        return 0;
+    }
+
+    psets = av_mallocz(MAX_PSET_SIZE);
+    if (!psets) {
+        av_log(fmt, AV_LOG_ERROR,
+               "Cannot allocate memory for the parameter sets.\n");
+        return AVERROR(ENOMEM);
+    }
+    p = psets;
+
+    for (i = 0; i < FF_ARRAY_ELEMS(sprops); i++) {
+        const uint8_t *r = extradata;
+        int have_attr = 0;
+
+        while (extradata + extradata_size - r > 4) {
+            uint32_t nal_size = AV_RB32(r);
+            uint8_t nal_type;
+
+            r += 4;
+            if (nal_size < 2 || nal_size > extradata + extradata_size - r)
+                break;
+            /* the Type field of the NAL unit header carries
+             * nal_unit_type_plus1 (ISO/IEC 23094-1) */
+            nal_type = ((r[0] >> 1) & 0x3f) - 1;
+            if (nal_type != sprops[i].nal_type) {
+                r += nal_size;
+                continue;
+            }
+            if (!have_attr) {
+                if (av_strlcatf(psets, MAX_PSET_SIZE, "%s%s=",
+                                p == psets ? "" : "; ",
+                                sprops[i].name) >= MAX_PSET_SIZE)
+                    goto fail;
+                have_attr = 1;
+            } else {
+                if (av_strlcat(psets, ",", MAX_PSET_SIZE) >= MAX_PSET_SIZE)
+                    goto fail;
+            }
+            p = psets + strlen(psets);
+            if (!av_base64_encode(p, MAX_PSET_SIZE - (p - psets), r, nal_size))
+                goto fail;
+            r += nal_size;
+        }
+        p = psets + strlen(psets);
+    }
+
+    *out = psets;
+    return 0;
+fail:
+    av_log(fmt, AV_LOG_ERROR, "Cannot fit EVC parameter sets into the SDP\n");
+    av_free(psets);
+    return AVERROR_INVALIDDATA;
+}
+
 static int extradata2config(AVFormatContext *s, const AVCodecParameters *par,
                             char **out)
 {
@@ -707,6 +793,43 @@ static int sdp_write_media_attributes(char *buff, int size, const AVStream *st,
         if (config)
             av_strlcatf(buff, size, "a=fmtp:%d %s\r\n",
                                      payload_type, config);
+        break;
+    case AV_CODEC_ID_EVC:
+        if (p->extradata_size) {
+            ret = extradata2psets_evc(fmt, p, &config);
+            if (ret < 0)
+                return ret;
+        }
+        av_strlcatf(buff, size, "a=rtpmap:%d evc/90000\r\n", payload_type);
+        if (config)
+            av_strlcatf(buff, size, "a=fmtp:%d %s\r\n",
+                                     payload_type, config);
+        break;
+    case AV_CODEC_ID_APV:
+        /* all format parameters of draft-ietf-avtcore-rtp-apv-01 are
+         * optional and duplicates of in-band information */
+        av_strlcatf(buff, size, "a=rtpmap:%d apv/90000\r\n", payload_type);
+        break;
+    case AV_CODEC_ID_JPEGXS:
+        av_strlcatf(buff, size, "a=rtpmap:%d jxsv/90000\r\n", payload_type);
+        /* packetmode is the only required format parameter
+         * (RFC 9134, Section 7.1); the packetizer uses the codestream
+         * packetization mode */
+        av_strlcatf(buff, size, "a=fmtp:%d packetmode=0", payload_type);
+        if (p->width > 0 && p->height > 0)
+            av_strlcatf(buff, size, ";width=%d;height=%d",
+                        p->width, p->height);
+        if (p->bits_per_raw_sample > 0)
+            av_strlcatf(buff, size, ";depth=%d", p->bits_per_raw_sample);
+        if (st->avg_frame_rate.num > 0 && st->avg_frame_rate.den > 0) {
+            if (st->avg_frame_rate.den == 1)
+                av_strlcatf(buff, size, ";exactframerate=%d",
+                            st->avg_frame_rate.num);
+            else
+                av_strlcatf(buff, size, ";exactframerate=%d/%d",
+                            st->avg_frame_rate.num, st->avg_frame_rate.den);
+        }
+        av_strlcatf(buff, size, "\r\n");
         break;
     case AV_CODEC_ID_MPEG4:
         if (p->extradata_size) {
