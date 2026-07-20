@@ -1085,13 +1085,6 @@ static int sdp_write_media_attributes(char *buff, int size, const AVStream *st,
                                 "a=fmtp:%d charset=utf-8;codecs=im1t\r\n",
                                  payload_type, payload_type);
         break;
-    case AV_CODEC_ID_TEXT:
-        /* RFC 4103: T.140 text uses a fixed 1000 Hz clock. */
-        av_strlcatf(buff, size, "a=rtpmap:%d t140/1000\r\n", payload_type);
-        break;
-    default:
-        /* Nothing special to do here... */
-        break;
     }
 
     av_free(config);

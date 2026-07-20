@@ -64,10 +64,6 @@ struct RTPMuxContext {
 
     unsigned int frame_count;
 
-    /* T.140 (RFC 4103) idle-period tracking */
-    uint32_t t140_last_timestamp;
-    int t140_started;
-
     /* RFC 4103 T.140 / T.140-RED state */
     int t140_red; /**< redundant generations (option) */
     int t140_red_pt;  /**< payload type of embedded t140 blocks */
@@ -75,6 +71,8 @@ struct RTPMuxContext {
     int t140_red_len[FF_RTP_T140_RED_MAX_GEN];
     uint32_t t140_red_ts[FF_RTP_T140_RED_MAX_GEN];
     int t140_red_count;
+    
+    /* T.140 (RFC 4103) idle-period tracking */
     uint32_t t140_last_timestamp;
     int t140_started;
 };
