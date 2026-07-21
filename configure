@@ -248,6 +248,7 @@ External library support:
   --enable-liblc3          enable LC3 de/encoding via liblc3 [no]
   --enable-liblcevc-dec    enable LCEVC decoding via liblcevc-dec [no]
   --enable-liblensfun      enable lensfun lens correction [no]
+  --enable-libloc          enable LOC mux/demux via libloc [no]
   --enable-libmodplug      enable ModPlug via libmodplug [no]
   --enable-libmp3lame      enable MP3 encoding via libmp3lame [no]
   --enable-libmpeghdec     enable MPEG-H 3DA decoding via libmpeghdec [no]
@@ -2033,6 +2034,7 @@ EXTERNAL_LIBRARY_GPL_LIST="
     libdavs2
     libdvdnav
     libdvdread
+    libloc
     librubberband
     libvidstab
     libx264
@@ -3865,6 +3867,8 @@ liblc3_decoder_deps="liblc3"
 liblc3_encoder_deps="liblc3"
 liblc3_encoder_select="audio_frame_queue"
 liblcevc_dec_select="cbs_lcevc"
+loc_demuxer_deps="libloc"
+loc_muxer_deps="libloc"
 libmodplug_demuxer_deps="libmodplug"
 libmp3lame_encoder_deps="libmp3lame"
 libmp3lame_encoder_select="audio_frame_queue mpegaudioheader"
@@ -7406,6 +7410,7 @@ if enabled libmfx; then
    check_cc MFX_CODEC_VP9 "mfxdefs.h mfxstructures.h" "MFX_CODEC_VP9"
 fi
 
+enabled libloc           && require_pkg_config libloc loc "loc/loc.h" loc_object_init
 enabled libmodplug        && require_pkg_config libmodplug libmodplug libmodplug/modplug.h ModPlug_Load
 enabled libmp3lame        && require "libmp3lame >= 3.98.3" lame/lame.h lame_set_VBR_quality -lmp3lame $libm_extralibs
 enabled libmpeghdec       && require_pkg_config libmpeghdec "mpeghdec >= 3.0.0" mpeghdec/mpeghdecoder.h mpeghdecoder_init
