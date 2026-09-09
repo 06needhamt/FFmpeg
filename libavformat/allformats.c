@@ -262,6 +262,8 @@ extern const FFInputFormat  ff_lmlm4_demuxer;
 extern const FFInputFormat  ff_loas_demuxer;
 extern const FFInputFormat  ff_luodat_demuxer;
 extern const FFInputFormat  ff_lrc_demuxer;
+extern const FFInputFormat  ff_loc_demuxer;
+extern const FFOutputFormat ff_loc_muxer;
 extern const FFOutputFormat ff_lrc_muxer;
 extern const FFInputFormat  ff_lvf_demuxer;
 extern const FFInputFormat  ff_lxf_demuxer;
