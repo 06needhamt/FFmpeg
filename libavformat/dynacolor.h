@@ -1,5 +1,5 @@
 /*
- * Dynacolor MVC Demuxer
+ * Dynacolor MVC Common Definitions
  * Copyright (c) 2020-2021 Tom Needham
  *
  * This file is part of FFmpeg.
@@ -206,8 +206,13 @@ int ff_dyna_read_file_header(AVFormatContext *ctx, AVIOContext *pb, unsigned cha
                                time_t *time, DynacolorHeader *cdata_B, unsigned int *basicIdx_H, unsigned int *basicIdx_L,
                                unsigned char first);
                                
+int ff_dyna_write_file_header(AVFormatContext *ctx, AVIOContext *pb,
+                                DynacolorHeader *header, unsigned int *size, time_t *time);
                                 
 int ff_dyna_read_pes_header(AVFormatContext *ctx, uint8_t *pes_data);
+
+int ff_dyna_write_pes_header(AVFormatContext *ctx, AVIOContext *pb,
+                                DynacolorPesHeader *pes, unsigned int size);
 
 int ff_dyna_check_pes_packet_header(AVFormatContext *ctx, int format_prefix);
 
