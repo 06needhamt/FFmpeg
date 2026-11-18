@@ -156,6 +156,7 @@ extern const FFOutputFormat ff_dv_muxer;
 extern const FFInputFormat  ff_dvbsub_demuxer;
 extern const FFInputFormat  ff_dvbtxt_demuxer;
 extern const FFInputFormat  ff_dxa_demuxer;
+extern const FFInputFormat  ff_dynacolor_demuxer;
 extern const FFInputFormat  ff_ea_demuxer;
 extern const FFInputFormat  ff_ea_cdata_demuxer;
 extern const FFInputFormat  ff_eac3_demuxer;

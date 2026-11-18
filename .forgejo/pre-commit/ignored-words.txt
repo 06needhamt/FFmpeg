@@ -25,6 +25,7 @@ clen
 clens
 Collet
 compre
+covert
 dum
 endin
 erro

@@ -1,0 +1,8 @@
+#extradata 0:       19, 0x14fa035e
+#tb 0: 1/25
+#media_type 0: video
+#codec_id 0: mpeg4
+#dimensions 0: 720x576
+#sar 0: 1/1
+0,          0,          0,        1,    24133, 0x179a3c98
+0,          1,          1,        1,      120, 0xfc814029, F=0x2
