@@ -601,7 +601,7 @@ library:
 @item DXA                       @tab   @tab X
     @tab This format is used in the non-Windows version of the Feeble Files
          game and different game cutscenes repacked for use with ScummVM.
-@item Dynacolor MVC             @tab   @tab X
+@item Dynacolor MVC             @tab X @tab X
     @tab Format used by surveillance cameras and DVRs with a Dynacolor chipset.
 @item Electronic Arts cdata  @tab    @tab X
 @item Electronic Arts Multimedia  @tab    @tab X

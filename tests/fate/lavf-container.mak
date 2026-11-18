@@ -1,6 +1,7 @@
 FATE_LAVF_CONTAINER-$(call ENCDEC2, MSMPEG4V3,  MP2,       ASF)                += asf
 FATE_LAVF_CONTAINER-$(call ENCDEC2, MPEG4,      MP2,       AVI)                += avi
 FATE_LAVF_CONTAINER-$(call ENCDEC2, DVVIDEO,    PCM_S16LE, AVI)                += dv dv_pal dv_ntsc
+FATE_LAVF_CONTAINER-$(call ENCDEC,  MPEG4,                 DYNACOLOR)          += dynacolor
 FATE_LAVF_CONTAINER-$(call ENCDEC,  FLV,                   FLV)                += flv
 FATE_LAVF_CONTAINER-$(call ENCDEC,  RAWVIDEO,              FILMSTRIP)          += flm
 FATE_LAVF_CONTAINER-$(call ENCDEC2, MPEG2VIDEO, PCM_S16LE, GXF)                += gxf gxf_pal gxf_ntsc
@@ -41,6 +42,7 @@ fate-lavf-avi fate-lavf-nut: CMD = lavf_container "" "-c:a mp2 -ar 44100 -thread
 fate-lavf-dv:  CMD = lavf_container "-ar 48000 -channel_layout stereo" "-r 25 -s pal"
 fate-lavf-dv_pal:  CMD = lavf_container_timecode_nodrop "-af aresample=48000:tsf=s16p -r 25 -s pal -ac 2 -f dv"
 fate-lavf-dv_ntsc:  CMD = lavf_container_timecode_drop "-af aresample=48000:tsf=s16p -pix_fmt yuv411p -s ntsc -ac 2 -f dv"
+fate-lavf-dynacolor: CMD = lavf_container "" "-an -c:v mpeg4 -threads 1 -f dynacolor"
 fate-lavf-flv fate-lavf-swf: CMD = lavf_container "" "-an"
 fate-lavf-flm: CMD = lavf_container "" "-pix_fmt rgba"
 fate-lavf-gxf: CMD = lavf_container "-ar 48000" "-r 25 -s pal -ac 1 -threads 1"
