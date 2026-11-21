@@ -598,6 +598,8 @@ library:
 @item DirectDraw Surface        @tab   @tab X
 @item DSD Stream File (DSF)     @tab   @tab X
 @item DV video                  @tab X @tab X
+@item DVD-Audio (AUDIO_TS)      @tab   @tab X
+    @tab Audio-only titles of DVD-Audio discs, via libaudvd.
 @item DXA                       @tab   @tab X
     @tab This format is used in the non-Windows version of the Feeble Files
          game and different game cutscenes repacked for use with ScummVM.

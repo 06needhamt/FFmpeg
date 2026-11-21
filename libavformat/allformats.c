@@ -590,6 +590,7 @@ extern const FFInputFormat  ff_image_xwd_pipe_demuxer;
 /* external libraries */
 extern const FFInputFormat  ff_avisynth_demuxer;
 extern const FFOutputFormat ff_chromaprint_muxer;
+extern const FFInputFormat  ff_dvdaudio_demuxer;
 extern const FFInputFormat  ff_dvdvideo_demuxer;
 extern const FFInputFormat  ff_libgme_demuxer;
 extern const FFInputFormat  ff_libmodplug_demuxer;

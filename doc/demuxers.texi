@@ -305,6 +305,87 @@ Dictionary of 16-byte key ID => 16-byte key, both in hex, to decrypt files encry
 
 @end table
 
+@section dvdaudio
+
+DVD-Audio demuxer, powered by libaudvd.
+
+Demuxes the audio-only titles of a DVD-Audio disc, that is the
+@file{AUDIO_TS} zone, into an LPCM (@code{pcm_dvda}) or MLP stream with
+one chapter per track and a continuous timeline across the tracks.
+Activate with @code{-f dvdaudio} in front of the path of a disc's root
+directory, or of its @file{AUDIO_TS} directory. Disc images and drives
+are not read directly; mount them first.
+
+FFmpeg must be built with @code{--enable-libaudvd}.
+
+This demuxer does NOT decrypt CPPM-protected discs. Titles whose audio is
+scrambled are refused, and scrambled stretches of an otherwise clear title
+are skipped with an error message.
+
+The downmix coefficient tables of the title set, which the producer of
+the disc can provide for listening to multichannel LPCM tracks in stereo,
+are passed to the @code{pcm_dvda} decoder. It exports the table each
+packet selects as a downmix matrix, which is then used when the audio is
+downmixed to stereo, e.g. with @code{-ac 2}. Tracks that mark their
+coefficients as not valid, or prohibit downmixing, export no matrix. MLP
+streams carry their own downmix, see the @code{downmix} option of the
+@code{mlp} decoder.
+
+Each track's number is stored in the @code{track} metadata of its chapter,
+along with @code{downmix_table} (the table it uses) or
+@code{downmix=prohibited} for LPCM tracks.
+
+@subsection Options
+
+This demuxer accepts the following options:
+
+@table @option
+
+@item title @var{int}
+The disc title number to demux. Video-linked (audio and video) titles are
+not supported.
+Default is 0, which selects the first audio-only title, or the first one
+of @option{group} if it is set.
+
+@item group @var{int}
+The group whose first audio-only title is selected when @option{title} is 0.
+Default is 0, any group.
+
+@item track_start @var{int}
+The track number to start at. Default is 1.
+
+@item track_end @var{int}
+The track number to end at. Default is 0, the last track of the title.
+
+@item ignore_amg @var{bool}
+Ignore the disc's title list (@file{AUDIO_TS.IFO}) and use the titles of
+the title sets instead, for discs with a damaged title list.
+Default is 0, false.
+
+@end table
+
+@subsection Examples
+
+@itemize
+@item
+Convert the first audio-only title of a disc:
+@example
+ffmpeg -f dvdaudio -i <path to disc> -c:a flac out.mka
+@end example
+
+@item
+Extract tracks 3 to 5 of title 2:
+@example
+ffmpeg -f dvdaudio -title 2 -track_start 3 -track_end 5 -i <path to disc> ...
+@end example
+
+@item
+Downmix a multichannel LPCM title to stereo with the disc's coefficients:
+@example
+ffmpeg -f dvdaudio -i <path to disc> -ac 2 stereo.wav
+@end example
+@end itemize
+
 @section dvdvideo
 
 DVD-Video demuxer, powered by libdvdnav and libdvdread.
