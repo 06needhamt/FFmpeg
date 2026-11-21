@@ -22,7 +22,13 @@
 #include <assert.h>
 #include <stddef.h>
 
+#include "libavutil/buffer.h"
 #include "libavutil/channel_layout.h"
+#include "libavutil/downmix_info.h"
+#include "libavutil/ffmath.h"
+#include "libavutil/frame.h"
+#include "libavutil/intreadwrite.h"
+#include "libavutil/mem.h"
 
 #include "avcodec.h"
 #include "bytestream.h"
@@ -77,6 +83,20 @@ typedef struct PCMDVDAHeader {
 
 static_assert(sizeof(PCMDVDAHeader) == 11, "unexpected header padding");
 
+/*
+ * Downmix extradata, as exported by the dvdaudio demuxer
+ * (libavformat/dvdaudiodec.c): "DVDM", version, flags, 2 reserved bytes,
+ * then the title set's 16 downmix coefficient tables (ATS_DM_COEFT) as
+ * 8 channel slots, in stream order, of (left, right) gain codes.
+ */
+#define DM_MAGIC            MKBETAG('D', 'V', 'D', 'M')
+#define DM_VERSION          1
+#define DM_FLAG_VALID       0x01
+#define DM_FLAG_PROHIBITED  0x02
+#define DM_TABLES           16
+#define DM_SLOTS            8
+#define DM_SIZE             (8 + DM_TABLES * DM_SLOTS * 2)
+
 typedef struct PCMDVDAContext {
     uint32_t last_header;    // Cached header to avoid reparsing
     int block_size;          // Size of a set of 2 samples over all channels
@@ -84,6 +104,13 @@ typedef struct PCMDVDAContext {
     int group_channels[2];   // Channels in group 1 / group 2 (0 = unused)
     int group_bits[2];       // Quantization of group 1 / group 2
     uint8_t group_map[2][6]; // Stream channel -> native layout position
+
+    int dm_present;                          // downmix tables received
+    int dm_flags;                            // DM_FLAG_*
+    uint8_t dm_codes[DM_TABLES][DM_SLOTS][2];
+    AVBufferRef *dm_matrix;                  // cached AVDownmixMatrix
+    int dm_matrix_table;
+    uint32_t dm_matrix_header;
 } PCMDVDAContext;
 
 #define CH_C   AV_CH_FRONT_CENTER
@@ -131,6 +158,84 @@ static const struct {
     [20] = { 4, 2, { CH_L, CH_R, CH_LS, CH_RS, CH_C, CH_LFE } },
 };
 
+static void pcm_dvda_parse_downmix(AVCodecContext *avctx,
+                                   const uint8_t *data, size_t size)
+{
+    PCMDVDAContext *s = avctx->priv_data;
+
+    av_buffer_unref(&s->dm_matrix);
+    s->dm_present = 0;
+    if (size < DM_SIZE || AV_RB32(data) != DM_MAGIC || data[4] != DM_VERSION) {
+        av_log(avctx, AV_LOG_WARNING, "ignoring unrecognized downmix extradata\n");
+        return;
+    }
+    s->dm_flags = data[5];
+    memcpy(s->dm_codes, data + 8, sizeof(s->dm_codes));
+    s->dm_present = 1;
+}
+
+/*
+ * Linear gain of a downmix coefficient code: 0.2 dB steps down to -40 dB
+ * at 0xc8, 0.4 dB steps below that; 0xff mutes the channel.
+ */
+static double pcm_dvda_downmix_gain(uint8_t code)
+{
+    double db;
+
+    if (code == 0xff)
+        return 0.0;
+    db = code <= 0xc8 ? -0.2 * code : -40.0 - 0.4 * (code - 0xc8);
+    return ff_exp10(db / 20.0);
+}
+
+/*
+ * Attach the producer's stereo downmix, the table selected by the packet
+ * header, to the frame; it is applied by e.g. aresample when downmixing.
+ */
+static int pcm_dvda_export_downmix(AVCodecContext *avctx, AVFrame *frame,
+                                   int table)
+{
+    PCMDVDAContext *s = avctx->priv_data;
+    AVBufferRef *ref;
+
+    if (!s->dm_present || !(s->dm_flags & DM_FLAG_VALID) ||
+        (s->dm_flags & DM_FLAG_PROHIBITED) || s->channels <= 2)
+        return 0;
+
+    if (!s->dm_matrix || s->dm_matrix_table != table ||
+        s->dm_matrix_header != s->last_header) {
+        size_t size;
+        AVDownmixMatrix *dm;
+
+        av_buffer_unref(&s->dm_matrix);
+        dm = av_downmix_matrix_alloc(AV_DOWNMIX_TYPE_LORO, s->channels, &size);
+        if (!dm)
+            return AVERROR(ENOMEM);
+        for (int n = 0; n < s->channels; n++) {
+            int g   = n >= s->group_channels[0];
+            int idx = s->group_map[g][n - g * s->group_channels[0]];
+            *av_downmix_matrix_coeff(dm, 0, idx) = pcm_dvda_downmix_gain(s->dm_codes[table][n][0]);
+            *av_downmix_matrix_coeff(dm, 1, idx) = pcm_dvda_downmix_gain(s->dm_codes[table][n][1]);
+        }
+        s->dm_matrix = av_buffer_create((uint8_t *)dm, size, NULL, NULL, 0);
+        if (!s->dm_matrix) {
+            av_free(dm);
+            return AVERROR(ENOMEM);
+        }
+        s->dm_matrix_table  = table;
+        s->dm_matrix_header = s->last_header;
+    }
+
+    ref = av_buffer_ref(s->dm_matrix);
+    if (!ref)
+        return AVERROR(ENOMEM);
+    if (!av_frame_new_side_data_from_buf(frame, AV_FRAME_DATA_DOWNMIX_MATRIX, ref)) {
+        av_buffer_unref(&ref);
+        return AVERROR(ENOMEM);
+    }
+    return 0;
+}
+
 static av_cold int pcm_dvda_decode_init(AVCodecContext *avctx)
 {
     PCMDVDAContext *s = avctx->priv_data;
@@ -138,6 +243,17 @@ static av_cold int pcm_dvda_decode_init(AVCodecContext *avctx)
     /* Invalid header to force parsing of the first header */
     s->last_header = -1;
 
+    if (avctx->extradata_size)
+        pcm_dvda_parse_downmix(avctx, avctx->extradata, avctx->extradata_size);
+
+    return 0;
+}
+
+static av_cold int pcm_dvda_decode_close(AVCodecContext *avctx)
+{
+    PCMDVDAContext *s = avctx->priv_data;
+
+    av_buffer_unref(&s->dm_matrix);
     return 0;
 }
 
@@ -295,9 +411,16 @@ static int pcm_dvda_decode_frame(AVCodecContext *avctx, AVFrame *frame,
     PCMDVDAContext *s  = avctx->priv_data;
     int buf_size       = avpkt->size;
     GetByteContext gb;
+    const uint8_t *side_data;
+    size_t side_data_size;
     int header_size;
     int retval;
     int blocks;
+
+    side_data = av_packet_get_side_data(avpkt, AV_PKT_DATA_NEW_EXTRADATA,
+                                        &side_data_size);
+    if (side_data)
+        pcm_dvda_parse_downmix(avctx, side_data, side_data_size);
 
     if (buf_size < sizeof(*header)) {
         av_log(avctx, AV_LOG_ERROR, "PCM packet too small\n");
@@ -335,6 +458,10 @@ static int pcm_dvda_decode_frame(AVCodecContext *avctx, AVFrame *frame,
     bytestream2_init(&gb, avpkt->data + header_size, blocks * s->block_size);
     pcm_dvda_decode_samples(avctx, &gb, frame->data[0], blocks);
 
+    if ((retval = pcm_dvda_export_downmix(avctx, frame,
+                                          header->emphasis_downmix & 0xf)) < 0)
+        return retval;
+
     *got_frame_ptr = 1;
 
     return avpkt->size;
@@ -347,6 +474,7 @@ const FFCodec ff_pcm_dvda_decoder = {
     .p.id           = AV_CODEC_ID_PCM_DVDA,
     .priv_data_size = sizeof(PCMDVDAContext),
     .init           = pcm_dvda_decode_init,
+    .close          = pcm_dvda_decode_close,
     FF_CODEC_DECODE_CB(pcm_dvda_decode_frame),
     .p.capabilities = AV_CODEC_CAP_CHANNEL_CONF |
                       AV_CODEC_CAP_DR1,
