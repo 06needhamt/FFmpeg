@@ -591,6 +591,9 @@ static int dvdaudio_read_seek(AVFormatContext *s, int stream_index,
         timestamp = av_rescale_q(timestamp, AV_TIME_BASE_Q, DVDAUDIO_TIME_BASE_Q);
     if (timestamp < 0)
         timestamp = 0;
+    /* the title timeline is at most 2^33 ticks long; this also keeps the sum below from overflowing */
+    if (timestamp >= 1LL << 33)
+        return AVERROR(EINVAL);
 
     ret = audvd_reader_seek_pts(c->reader, c->range_start_pts + timestamp, &landed);
     if (ret < 0) {
