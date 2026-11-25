@@ -1,0 +1,18 @@
+41f3849ebe0c1c6ff68251884f79778f *tests/data/fate/dynacolor-h264-intra-keys.dynacolor
+47628 tests/data/fate/dynacolor-h264-intra-keys.dynacolor
+#extradata 0:       22, 0x31dc050c
+#tb 0: 1/30
+#media_type 0: video
+#codec_id 0: h264
+#dimensions 0: 176x144
+#sar 0: 0/1
+0,          0,          0,        1,     2402, 0xdc42c862
+0,          1,          1,        1,     6130, 0xbbe4c38d
+0,          2,          2,        1,     4159, 0xa7085748
+0,          3,          3,        1,     6170, 0xdde39793
+0,          4,          4,        1,     2605, 0x00d7852a
+0,          5,          5,        1,     6284, 0x9a4cced2
+0,          6,          6,        1,     4316, 0xcc715bb5
+0,          7,          7,        1,     6090, 0x4c01ae29
+0,          8,          8,        1,     2442, 0x8608e203
+0,          9,          9,        1,     6390, 0x94edc9ad

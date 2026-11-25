@@ -1,0 +1,9 @@
+46dd8e60b11fce33eb3dbd830f80a44d *tests/data/fate/dynacolor-h264-recovery.dynacolor
+44158 tests/data/fate/dynacolor-h264-recovery.dynacolor
+#extradata 0:      182, 0xcaba50c1
+#tb 0: 1/30
+#media_type 0: video
+#codec_id 0: h264
+#dimensions 0: 320x240
+#sar 0: 0/1
+0,          0, -9223372036854775808,        1,     3442, 0x556aac0d
